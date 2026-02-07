@@ -1,29 +1,27 @@
 {
   "expo": {
-    "name": "My App",
-    "slug": "my-app",
+    "name": "TransportGo",
+    "slug": "transport-go",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "transportgo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A1628"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.myapp"
+      "bundleIdentifier": "com.transportgo"
     },
     "android": {
-      "package": "com.myapp",
+      "package": "com.transportgo",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#0A1628",
+        "foregroundImage": "./assets/images/icon.png"
       }
     },
     "web": {
