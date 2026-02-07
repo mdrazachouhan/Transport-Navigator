@@ -16,8 +16,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  withRepeat,
+  Easing,
+} from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -27,6 +38,52 @@ export default function LoginScreen() {
   const [role, setRole] = useState<'customer' | 'driver'>('customer');
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const logoOpacity = useSharedValue(0);
+  const logoTranslateY = useSharedValue(20);
+  const formOpacity = useSharedValue(0);
+  const formTranslateY = useSharedValue(20);
+  const demoOpacity = useSharedValue(0);
+  const demoTranslateY = useSharedValue(20);
+  const truckX = useSharedValue(-60);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    logoOpacity.value = withDelay(100, withTiming(1, { duration: 600 }));
+    logoTranslateY.value = withDelay(100, withTiming(0, { duration: 600 }));
+    formOpacity.value = withDelay(300, withTiming(1, { duration: 600 }));
+    formTranslateY.value = withDelay(300, withTiming(0, { duration: 600 }));
+    demoOpacity.value = withDelay(500, withTiming(1, { duration: 600 }));
+    demoTranslateY.value = withDelay(500, withTiming(0, { duration: 600 }));
+    truckX.value = withRepeat(
+      withTiming(400, { duration: 8000, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, []);
+
+  const logoAnimStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ translateY: logoTranslateY.value }],
+  }));
+
+  const formAnimStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+    transform: [{ translateY: formTranslateY.value }],
+  }));
+
+  const demoAnimStyle = useAnimatedStyle(() => ({
+    opacity: demoOpacity.value,
+    transform: [{ translateY: demoTranslateY.value }],
+  }));
+
+  const truckAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: truckX.value }],
+  }));
+
+  const buttonAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
 
   useEffect(() => {
     if (!loading && isAuthenticated && user) {
@@ -66,6 +123,14 @@ export default function LoginScreen() {
     }
   }
 
+  function handleButtonPressIn() {
+    buttonScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+  }
+
+  function handleButtonPressOut() {
+    buttonScale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  }
+
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
@@ -84,7 +149,11 @@ export default function LoginScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.logoSection}>
+        <Animated.View style={[styles.floatingTruck, truckAnimStyle]} pointerEvents="none">
+          <MaterialCommunityIcons name="truck-fast-outline" size={32} color="rgba(27,110,243,0.06)" />
+        </Animated.View>
+
+        <Animated.View style={[styles.logoSection, logoAnimStyle]}>
           <LinearGradient
             colors={[Colors.primary, Colors.accent]}
             start={{ x: 0, y: 0 }}
@@ -95,83 +164,87 @@ export default function LoginScreen() {
           </LinearGradient>
           <Text style={styles.appName}>TransportGo</Text>
           <Text style={styles.tagline}>Fast & Reliable Logistics</Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.roleToggle}>
-          <Pressable
-            style={[styles.roleButton, role === 'customer' && styles.roleButtonActive]}
-            onPress={() => { setRole('customer'); if (Platform.OS !== 'web') Haptics.selectionAsync(); }}
-          >
-            <Ionicons name="person" size={18} color={role === 'customer' ? '#FFF' : Colors.textSecondary} />
-            <Text style={[styles.roleText, role === 'customer' && styles.roleTextActive]}>Customer</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.roleButton, role === 'driver' && styles.roleButtonActive]}
-            onPress={() => { setRole('driver'); if (Platform.OS !== 'web') Haptics.selectionAsync(); }}
-          >
-            <MaterialCommunityIcons name="steering" size={18} color={role === 'driver' ? '#FFF' : Colors.textSecondary} />
-            <Text style={[styles.roleText, role === 'driver' && styles.roleTextActive]}>Driver</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              placeholderTextColor={Colors.textTertiary}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              maxLength={10}
-            />
-          </View>
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Password"
-              placeholderTextColor={Colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textTertiary} />
+        <Animated.View style={formAnimStyle}>
+          <View style={styles.roleToggle}>
+            <Pressable
+              style={[styles.roleButton, role === 'customer' && styles.roleButtonActive]}
+              onPress={() => { setRole('customer'); if (Platform.OS !== 'web') Haptics.selectionAsync(); }}
+            >
+              <Ionicons name="person" size={18} color={role === 'customer' ? '#FFF' : Colors.textSecondary} />
+              <Text style={[styles.roleText, role === 'customer' && styles.roleTextActive]}>Customer</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.roleButton, role === 'driver' && styles.roleButtonActive]}
+              onPress={() => { setRole('driver'); if (Platform.OS !== 'web') Haptics.selectionAsync(); }}
+            >
+              <MaterialCommunityIcons name="steering" size={18} color={role === 'driver' ? '#FFF' : Colors.textSecondary} />
+              <Text style={[styles.roleText, role === 'driver' && styles.roleTextActive]}>Driver</Text>
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={handleLogin}
-            disabled={submitting}
-            style={({ pressed }) => [styles.loginButton, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-          >
-            <LinearGradient
-              colors={[Colors.primary, '#4F46E5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.loginGradient}
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Ionicons name="call-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                placeholderTextColor={Colors.textTertiary}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Password"
+                placeholderTextColor={Colors.textTertiary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textTertiary} />
+              </Pressable>
+            </View>
+
+            <AnimatedPressable
+              onPress={handleLogin}
+              onPressIn={handleButtonPressIn}
+              onPressOut={handleButtonPressOut}
+              disabled={submitting}
+              style={[styles.loginButton, buttonAnimStyle]}
             >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <>
-                  <Text style={styles.loginText}>Sign In</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFF" />
-                </>
-              )}
-            </LinearGradient>
+              <LinearGradient
+                colors={[Colors.primary, '#4F46E5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginGradient}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Text style={styles.loginText}>Sign In</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                  </>
+                )}
+              </LinearGradient>
+            </AnimatedPressable>
+          </View>
+
+          <Pressable onPress={() => router.push('/register')} style={styles.registerLink}>
+            <Text style={styles.registerText}>
+              Don't have an account? <Text style={styles.registerHighlight}>Sign Up</Text>
+            </Text>
           </Pressable>
-        </View>
+        </Animated.View>
 
-        <Pressable onPress={() => router.push('/register')} style={styles.registerLink}>
-          <Text style={styles.registerText}>
-            Don't have an account? <Text style={styles.registerHighlight}>Sign Up</Text>
-          </Text>
-        </Pressable>
-
-        <View style={styles.demoCard}>
+        <Animated.View style={[styles.demoCard, demoAnimStyle]}>
           <View style={styles.demoHeader}>
             <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
             <Text style={styles.demoTitle}>Demo Credentials</Text>
@@ -184,7 +257,7 @@ export default function LoginScreen() {
             <Text style={styles.demoLabel}>Driver:</Text>
             <Text style={styles.demoValue}>9876543211 / password</Text>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -194,6 +267,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { paddingHorizontal: 24 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  floatingTruck: { position: 'absolute', top: 120, left: 0, zIndex: 0 },
   logoSection: { alignItems: 'center', marginBottom: 32 },
   logoCircle: { width: 80, height: 80, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   appName: { fontSize: 32, fontFamily: 'Inter_700Bold', color: Colors.text, letterSpacing: -0.5 },
