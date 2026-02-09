@@ -30,7 +30,8 @@ Preferred communication style: Simple, everyday language.
 - **Entry point**: `server/index.ts`
 - **Auth**: `server/auth.ts` — JWT token generation/verification, auth middleware, role-based access middleware
 - **Routes**: `server/routes.ts` — 20+ REST API endpoints for auth, users, bookings, vehicles, admin
-- **Storage**: `server/storage.ts` — In-memory storage with Maps (designed for easy MongoDB migration)
+- **Database**: MongoDB Atlas via Mongoose (`server/models.ts` for schemas, `server/storage.ts` for data access layer)
+- **Storage**: `server/storage.ts` — MongoStorage class wrapping Mongoose models with async methods
 - **Real-time**: Socket.IO for driver location updates, booking notifications
 - **Templates**: Landing page at `/` and admin panel at `/admin` (HTML served from Express)
 - **CORS**: Configured for Replit domains and localhost
@@ -91,7 +92,7 @@ Preferred communication style: Simple, everyday language.
 - `driver:location:update` — Server broadcasts driver location
 
 ### Key Design Decisions
-1. **In-memory storage**: Uses Map-based storage designed to mirror MongoDB interface for easy migration
+1. **MongoDB Atlas**: Persistent storage via Mongoose ODM, auto-seeds default vehicles and admin on first run
 2. **Mock OTP**: OTP is returned in API response during development, logged to console
 3. **Mock locations**: 10 predefined Indore locations used instead of real geocoding
 4. **Flat pricing**: Auto (₹50 + ₹12/km), Tempo (₹150 + ₹18/km), Truck (₹300 + ₹25/km)

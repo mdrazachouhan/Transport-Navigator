@@ -73,3 +73,8 @@ task = "shell.exec"
 args = "npm run expo:dev"
 waitForPort = 8081
 ensurePreviewReachable = "/status"
+
+[userenv]
+
+[userenv.shared]
+MONGODB_URI = "mongodb+srv://raza:Raza%409926@raza.4snf3fg.mongodb.net/?appName=raza"
