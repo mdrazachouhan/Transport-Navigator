@@ -136,22 +136,23 @@ export default function LoginScreen() {
   }, [authLoading, isAuthenticated, user]);
 
   function crossfadeToOtp() {
-    setOtpSent(true);
-    otpFormOpacity.setValue(0);
-    Animated.parallel([
-      Animated.timing(phoneFormOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(otpFormOpacity, { toValue: 1, duration: 300, delay: 150, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(phoneFormOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+      setOtpSent(true);
+      otpFormOpacity.setValue(0);
+      requestAnimationFrame(() => {
+        Animated.timing(otpFormOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      });
+    });
   }
 
   function crossfadeToPhone() {
-    phoneFormOpacity.setValue(0);
-    Animated.parallel([
-      Animated.timing(otpFormOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(phoneFormOpacity, { toValue: 1, duration: 300, delay: 150, useNativeDriver: true }),
-    ]).start(() => {
+    Animated.timing(otpFormOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
       setOtpSent(false);
       setOtp('');
+      phoneFormOpacity.setValue(0);
+      requestAnimationFrame(() => {
+        Animated.timing(phoneFormOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      });
     });
   }
 
