@@ -44,6 +44,49 @@ Preferred communication style: Simple, everyday language.
 - **Config**: `drizzle.config.ts` expects `DATABASE_URL` environment variable
 - **Note**: The schema is defined but the app currently uses AsyncStorage for data persistence. The server uses in-memory storage. The database integration is set up but not fully wired.
 
+### Rapido-like Features (Added Feb 2026)
+
+**Customer Home Screen** (`app/customer/home.tsx`):
+- Full-screen MapView background with floating UI (Rapido/Uber style)
+- "Where to?" search bar that navigates to booking screen
+- Saved locations (Home/Work) quick chips
+- Promotional offers carousel (20% OFF, Refer & Earn, Safe Delivery)
+- Cash/UPI payment toggle
+- Bottom sheet with vehicle options (Auto/Tempo/Truck)
+- Active booking banner with pulsing animation
+
+**Track Ride Screen** (`app/customer/track-ride.tsx`):
+- 4-step animated ride status stepper (Confirmed → Driver Assigned → Pickup → Delivery)
+- SOS emergency floating button with pulsing animation
+- Share ride details button
+- ETA display badge ("Arriving in ~X min")
+- Payment method badge (Cash/UPI)
+- Cancellation reasons modal with 4 options
+
+**Rate Ride Screen** (`app/customer/rate-ride.tsx`):
+- Trip completion celebration header with animated checkmark
+- 5-star interactive rating with bounce animations
+- Quick feedback tags (Polite Driver, Safe Drive, On Time, etc.)
+- Optional comment input
+- Fare summary with route and price breakdown
+
+**Driver Dashboard** (`app/driver/dashboard.tsx`):
+- Real MapView with Indore location markers
+- Demand heat map badges (High/Medium/Low)
+- Animated stat cards with staggered entrance
+- Weekly earnings bar chart
+
+**Driver Active Ride** (`app/driver/active-ride.tsx`):
+- MapView with pickup (green) and delivery (red) markers
+- Floating ETA badge
+- "Open in Maps" navigation button
+- Animated card entrances
+
+**BookingContext enhancements** (`contexts/BookingContext.tsx`):
+- New fields: rating, ratingComment, cancelReason, paymentMethod, estimatedTime
+- New methods: rateBooking(), cancelBookingWithReason()
+- ETA calculation: distance * 3 + 5 minutes
+
 ### Key Design Decisions
 
 1. **Offline-first with AsyncStorage**: Bookings and auth data persist locally. This was chosen for simplicity and works without requiring a running backend for the core flow. The backend infrastructure exists for future migration to server-side data.
@@ -57,6 +100,8 @@ Preferred communication style: Simple, everyday language.
 5. **OTP verification**: Drivers must enter a 4-digit OTP (generated at booking creation) to start a trip, ensuring pickup verification.
 
 6. **Platform-aware components**: Map components have separate native and web implementations. Haptics are conditionally used based on platform.
+
+7. **Extracted animated components**: All animated items (stars, stepper dots, cards, promo cards) are extracted into separate named components to avoid calling useAnimatedStyle inside loops/maps.
 
 ### Build & Run
 
