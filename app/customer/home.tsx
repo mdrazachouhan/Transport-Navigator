@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   Platform,
   Animated,
   Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
@@ -24,6 +27,152 @@ const VEHICLE_TYPES = [
   { type: 'tempo', name: 'Tempo', icon: 'van-utility' as const, capacity: 'Up to 1000kg', price: 'From ₹150' },
   { type: 'truck', name: 'Truck', icon: 'truck' as const, capacity: '1000kg+', price: 'From ₹300' },
 ];
+
+const FLOATING_PINS = [
+  { top: 90, left: 40, delay: 0, size: 16 },
+  { top: 160, left: SCREEN_WIDTH - 70, delay: 300, size: 14 },
+  { top: 220, left: SCREEN_WIDTH / 2 - 20, delay: 600, size: 12 },
+  { top: 130, left: SCREEN_WIDTH / 2 + 50, delay: 900, size: 15 },
+];
+
+const GREETING_WORDS = ['Hello,'];
+
+function FloatingPin({ pin }: { pin: typeof FLOATING_PINS[0] }) {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 2000 + pin.delay,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000 + pin.delay,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    const timeout = setTimeout(() => animation.start(), pin.delay);
+    return () => {
+      clearTimeout(timeout);
+      animation.stop();
+    };
+  }, []);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -8],
+  });
+
+  const opacity = floatAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.4, 0.7, 0.4],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.floatingPin,
+        {
+          top: pin.top,
+          left: pin.left,
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
+    >
+      <Ionicons name="location" size={pin.size} color={Colors.primary} />
+    </Animated.View>
+  );
+}
+
+function PulsingDot() {
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const glowScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.6],
+  });
+
+  const glowOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 0],
+  });
+
+  return (
+    <View style={styles.pulseIndicator}>
+      <Animated.View
+        style={[
+          styles.pulseGlow,
+          {
+            transform: [{ scale: glowScale }],
+            opacity: glowOpacity,
+          },
+        ]}
+      />
+      <View style={styles.pulseCore} />
+    </View>
+  );
+}
+
+function LocationChip({ location, onPress }: { location: typeof MOCK_LOCATIONS[0]; onPress: () => void }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.93,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={styles.quickLocationChip}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="location" size={14} color={Colors.primary} />
+        <Text style={styles.quickLocationText} numberOfLines={1}>
+          {location.name}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function CustomerHomeScreen() {
   const router = useRouter();
@@ -40,6 +189,12 @@ export default function CustomerHomeScreen() {
   const slideAnim = useRef(new Animated.Value(40)).current;
   const bannerAnim = useRef(new Animated.Value(-100)).current;
   const cardAnims = useRef(VEHICLE_TYPES.map(() => new Animated.Value(0))).current;
+  const searchGlowAnim = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const greetingWordAnims = useRef(
+    ['Hello,', user?.name || 'User'].map(() => new Animated.Value(0))
+  ).current;
 
   const activeBooking = getActiveBooking();
 
@@ -61,15 +216,41 @@ export default function CustomerHomeScreen() {
       }),
     ]).start();
 
-    const cardAnimations = cardAnims.map((anim, index) =>
+    const wordAnimations = greetingWordAnims.map((anim, index) =>
       Animated.timing(anim, {
         toValue: 1,
         duration: 400,
-        delay: 200 + index * 100,
+        delay: 300 + index * 200,
         useNativeDriver: true,
       })
     );
-    Animated.stagger(100, cardAnimations).start();
+    Animated.stagger(200, wordAnimations).start();
+
+    const cardAnimations = cardAnims.map((anim, index) =>
+      Animated.spring(anim, {
+        toValue: 1,
+        tension: 80,
+        friction: 8,
+        delay: 200 + index * 120,
+        useNativeDriver: true,
+      })
+    );
+    Animated.stagger(120, cardAnimations).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(searchGlowAnim, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: false,
+        }),
+        Animated.timing(searchGlowAnim, {
+          toValue: 0,
+          duration: 1800,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
 
     if (activeBooking) {
       Animated.spring(bannerAnim, {
@@ -95,15 +276,49 @@ export default function CustomerHomeScreen() {
     }
   };
 
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, -15],
+    extrapolate: 'clamp',
+  });
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [1, 0.85],
+    extrapolate: 'clamp',
+  });
+
+  const searchBorderColor = searchGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.cardBorder, Colors.primaryGlow],
+  });
+
+  const searchShadowOpacity = searchGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.2],
+  });
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollY.setValue(event.nativeEvent.contentOffset.y);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.mapBackground}>
-        <View style={styles.mapGradientTop} />
+        <LinearGradient
+          colors={[Colors.navyDark, Colors.navy]}
+          style={styles.gradientTop}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
         <View style={styles.mapGrid}>
           {Array.from({ length: 20 }).map((_, i) => (
             <View key={i} style={styles.mapGridLine} />
           ))}
         </View>
+        {FLOATING_PINS.map((pin, index) => (
+          <FloatingPin key={index} pin={pin} />
+        ))}
         {MOCK_LOCATIONS.slice(0, 5).map((loc, index) => (
           <View
             key={loc.id}
@@ -121,7 +336,16 @@ export default function CustomerHomeScreen() {
         <View style={styles.mapOverlay} />
       </View>
 
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            paddingTop: topInset + 8,
+            transform: [{ translateY: headerTranslateY }],
+            opacity: headerOpacity,
+          },
+        ]}
+      >
         <Animated.View
           style={[
             styles.headerContent,
@@ -133,8 +357,42 @@ export default function CustomerHomeScreen() {
               <Ionicons name="person" size={20} color={Colors.surface} />
             </View>
             <View style={styles.greetingContainer}>
-              <Text style={styles.greetingText}>Hello,</Text>
-              <Text style={styles.userName}>{user?.name || 'User'}</Text>
+              <Animated.Text
+                style={[
+                  styles.greetingText,
+                  {
+                    opacity: greetingWordAnims[0],
+                    transform: [
+                      {
+                        translateY: greetingWordAnims[0].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [8, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                Hello,
+              </Animated.Text>
+              <Animated.Text
+                style={[
+                  styles.userName,
+                  {
+                    opacity: greetingWordAnims[1],
+                    transform: [
+                      {
+                        translateY: greetingWordAnims[1].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [8, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                {user?.name || 'User'}
+              </Animated.Text>
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -149,7 +407,7 @@ export default function CustomerHomeScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </View>
+      </Animated.View>
 
       {activeBooking && (
         <Animated.View
@@ -168,9 +426,7 @@ export default function CustomerHomeScreen() {
             }
           >
             <View style={styles.activeBannerLeft}>
-              <View style={styles.pulseIndicator}>
-                <View style={styles.pulseCore} />
-              </View>
+              <PulsingDot />
               <View>
                 <Text style={styles.activeBannerTitle}>Active Booking</Text>
                 <Text style={styles.activeBannerStatus}>
@@ -184,90 +440,111 @@ export default function CustomerHomeScreen() {
       )}
 
       <View style={[styles.bottomSection, { paddingBottom: bottomInset + 16 }]}>
-        <Animated.View
-          style={[
-            styles.searchBarContainer,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
+        <ScrollView
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
         >
-          <TouchableOpacity
-            style={styles.searchBar}
-            onPress={() => router.push('/customer/new-booking' as any)}
+          <Animated.View
+            style={[
+              styles.searchBarContainer,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
           >
-            <View style={styles.searchIconContainer}>
-              <Ionicons name="search" size={20} color={Colors.primary} />
-            </View>
-            <Text style={styles.searchPlaceholder}>Where to?</Text>
-            <Feather name="arrow-right" size={20} color={Colors.textTertiary} />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <View style={styles.vehicleSection}>
-          <Text style={styles.vehicleSectionTitle}>Choose your ride</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.vehicleList}
-          >
-            {VEHICLE_TYPES.map((vehicle, index) => (
+            <TouchableOpacity
+              onPress={() => router.push('/customer/new-booking' as any)}
+              activeOpacity={0.85}
+            >
               <Animated.View
-                key={vehicle.type}
                 style={[
-                  styles.vehicleCard,
+                  styles.searchBar,
                   {
-                    opacity: cardAnims[index],
-                    transform: [
-                      {
-                        translateY: cardAnims[index].interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [30, 0],
-                        }),
-                      },
-                    ],
+                    borderColor: searchBorderColor,
+                    shadowColor: Colors.primary,
+                    shadowOpacity: searchShadowOpacity,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 0 },
                   },
                 ]}
               >
-                <TouchableOpacity
-                  style={styles.vehicleCardInner}
-                  onPress={() => router.push('/customer/new-booking' as any)}
-                >
-                  <View style={styles.vehicleIconContainer}>
-                    <MaterialCommunityIcons
-                      name={vehicle.icon}
-                      size={32}
-                      color={Colors.primary}
-                    />
-                  </View>
-                  <Text style={styles.vehicleName}>{vehicle.name}</Text>
-                  <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
-                  <Text style={styles.vehiclePrice}>{vehicle.price}</Text>
-                </TouchableOpacity>
+                <View style={styles.searchIconContainer}>
+                  <Ionicons name="search" size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.searchPlaceholder}>Where to?</Text>
+                <Feather name="arrow-right" size={20} color={Colors.textTertiary} />
               </Animated.View>
-            ))}
-          </ScrollView>
-        </View>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <View style={styles.quickLocations}>
-          <Text style={styles.quickLocationsTitle}>Popular locations</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickLocationsList}
-          >
-            {MOCK_LOCATIONS.slice(0, 4).map((location) => (
-              <TouchableOpacity
-                key={location.id}
-                style={styles.quickLocationChip}
-                onPress={() => router.push('/customer/new-booking' as any)}
-              >
-                <Ionicons name="location" size={14} color={Colors.primary} />
-                <Text style={styles.quickLocationText} numberOfLines={1}>
-                  {location.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+          <View style={styles.vehicleSection}>
+            <Text style={styles.vehicleSectionTitle}>Choose your ride</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.vehicleList}
+            >
+              {VEHICLE_TYPES.map((vehicle, index) => (
+                <Animated.View
+                  key={vehicle.type}
+                  style={[
+                    styles.vehicleCard,
+                    {
+                      opacity: cardAnims[index],
+                      transform: [
+                        {
+                          translateY: cardAnims[index].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [40, 0],
+                          }),
+                        },
+                        {
+                          scale: cardAnims[index].interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [0.85, 1.03, 1],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.vehicleCardInner}
+                    onPress={() => router.push('/customer/new-booking' as any)}
+                  >
+                    <View style={styles.vehicleIconContainer}>
+                      <MaterialCommunityIcons
+                        name={vehicle.icon}
+                        size={32}
+                        color={Colors.primary}
+                      />
+                    </View>
+                    <Text style={styles.vehicleName}>{vehicle.name}</Text>
+                    <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
+                    <Text style={styles.vehiclePrice}>{vehicle.price}</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.quickLocations}>
+            <Text style={styles.quickLocationsTitle}>Popular locations</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickLocationsList}
+            >
+              {MOCK_LOCATIONS.slice(0, 4).map((location) => (
+                <LocationChip
+                  key={location.id}
+                  location={location}
+                  onPress={() => router.push('/customer/new-booking' as any)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -280,15 +557,14 @@ const styles = StyleSheet.create({
   },
   mapBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#E8ECF2',
+    backgroundColor: Colors.background,
   },
-  mapGradientTop: {
+  gradientTop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 280,
-    backgroundColor: Colors.navyDark,
   },
   mapGrid: {
     position: 'absolute',
@@ -302,6 +578,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
     marginVertical: 25,
     opacity: 0.3,
+  },
+  floatingPin: {
+    position: 'absolute',
+    zIndex: 2,
   },
   mapDot: {
     position: 'absolute',
@@ -410,6 +690,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pulseGlow: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryGlow,
+  },
   pulseCore: {
     width: 12,
     height: 12,
@@ -453,7 +740,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.cardBorder,
   },
   searchIconContainer: {
