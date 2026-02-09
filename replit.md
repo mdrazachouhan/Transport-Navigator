@@ -2,7 +2,7 @@
 
 ## Overview
 
-TransportGo is a transport/logistics mobile application built with React Native (Expo) and an Express backend. It connects customers who need goods transported with drivers who operate vehicles (auto, tempo, truck). The app features two user roles — **customers** who create bookings and track rides, and **drivers** who receive ride requests, verify pickups via OTP, and complete deliveries. The app is currently focused on the Indore, India region with mock locations.
+TransportGo is a transport/logistics mobile application built with React Native (Expo) and an Express backend, similar to Rapido/Porter. It connects customers who need goods transported with drivers who operate vehicles (Auto, Tempo, Truck). The app features three user roles: **customers** who create bookings and track rides, **drivers** who receive ride requests, verify pickups via OTP, and complete deliveries, and **admins** who manage the entire platform via a web dashboard. The app is focused on the Indore, India region with mock locations.
 
 ## User Preferences
 
@@ -14,104 +14,99 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: React Native with Expo SDK 54, using expo-router for file-based routing
 - **Language**: TypeScript throughout
 - **Navigation**: File-based routing via `expo-router` with nested layouts:
-  - `app/index.tsx` — Login screen
-  - `app/register.tsx` — Registration screen
+  - `app/index.tsx` — Phone + OTP login screen with role selection (Customer/Driver)
+  - `app/register.tsx` — Profile completion (name, vehicle details for drivers)
   - `app/customer/` — Customer screens (home, new-booking, track-ride, history, rate-ride)
   - `app/driver/` — Driver screens (dashboard, requests, active-ride)
 - **State Management**: React Context API with two main contexts:
-  - `AuthContext` — Handles user authentication with demo users and AsyncStorage persistence
-  - `BookingContext` — Manages booking lifecycle (create, accept, start, complete, cancel, rate) with AsyncStorage persistence
-- **Data Fetching**: TanStack React Query is set up (`lib/query-client.ts`) with API helpers, though current data flow uses local state via AsyncStorage
-- **Animations**: react-native-reanimated for UI animations
-- **Maps**: react-native-maps with a web fallback (`MapWrapper.web.tsx` returns empty View)
+  - `AuthContext` — Phone+OTP authentication via backend API, JWT token storage in AsyncStorage
+  - `BookingContext` — Full booking lifecycle via backend API (create, accept, start, complete, cancel, rate)
+- **Data Fetching**: Direct fetch calls to Express backend with JWT Authorization headers
+- **Animations**: React Native Animated API for entrance animations, spring effects
 - **Fonts**: Inter font family via `@expo-google-fonts/inter`
-- **Haptics**: expo-haptics for tactile feedback on interactions
 
 ### Backend (Express Server)
-- **Framework**: Express 5 running on Node.js
+- **Framework**: Express 5 running on Node.js, port 5000
 - **Entry point**: `server/index.ts`
-- **Routes**: `server/routes.ts` — Currently minimal, creates HTTP server with placeholder for `/api` routes
-- **Storage**: `server/storage.ts` — Uses in-memory storage (`MemStorage`) with a `Map` for users. Implements `IStorage` interface for future database swap
-- **CORS**: Configured to allow Replit domains and localhost origins for Expo web development
-- **Static serving**: In production, serves static web build; in development, proxies to Expo's Metro bundler
+- **Auth**: `server/auth.ts` — JWT token generation/verification, auth middleware, role-based access middleware
+- **Routes**: `server/routes.ts` — 20+ REST API endpoints for auth, users, bookings, vehicles, admin
+- **Storage**: `server/storage.ts` — In-memory storage with Maps (designed for easy MongoDB migration)
+- **Real-time**: Socket.IO for driver location updates, booking notifications
+- **Templates**: Landing page at `/` and admin panel at `/admin` (HTML served from Express)
+- **CORS**: Configured for Replit domains and localhost
 
-### Database Schema (Drizzle ORM)
-- **ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema location**: `shared/schema.ts`
-- **Current tables**:
-  - `users` — id (UUID, auto-generated), username (text, unique), password (text)
-- **Validation**: drizzle-zod for insert schema generation
-- **Config**: `drizzle.config.ts` expects `DATABASE_URL` environment variable
-- **Note**: The schema is defined but the app currently uses AsyncStorage for data persistence. The server uses in-memory storage. The database integration is set up but not fully wired.
+### Data Models
+- **User**: id, name, phone, role (customer/driver/admin), vehicleType, vehicleNumber, isOnline, isApproved, rating, totalTrips, totalEarnings, location
+- **Booking**: id, customerId, driverId, pickup/delivery locations, vehicleType, distance, pricing (base+distance), status (pending/accepted/in_progress/completed/cancelled), otp, rating
+- **VehiclePricing**: type, name, baseFare, perKmCharge, capacity
+- **OtpRecord**: phone, otp, expiresAt, verified (5-minute expiry)
 
-### Rapido-like Features (Added Feb 2026)
+### Web Admin Panel
+- **URL**: `/admin` on port 5000
+- **Auth**: Admin login with phone 9999999999, password admin123
+- **Features**: Dashboard stats, user management, booking management, vehicle pricing editor, live driver tracking
+- **Tech**: Pure HTML/CSS/JavaScript, no frameworks, served as template from Express
 
-**Customer Home Screen** (`app/customer/home.tsx`):
-- Full-screen MapView background with floating UI (Rapido/Uber style)
-- "Where to?" search bar that navigates to booking screen
-- Saved locations (Home/Work) quick chips
-- Promotional offers carousel (20% OFF, Refer & Earn, Safe Delivery)
-- Cash/UPI payment toggle
-- Bottom sheet with vehicle options (Auto/Tempo/Truck)
-- Active booking banner with pulsing animation
+### API Endpoints
+**Auth:**
+- POST `/api/auth/send-otp` — Send OTP (returns OTP in dev mode)
+- POST `/api/auth/verify-otp` — Verify OTP, create user if new, return JWT
+- POST `/api/auth/register` — Complete user registration
+- POST `/api/auth/admin-login` — Admin login with phone+password
+- GET `/api/auth/me` — Get current user (requires auth)
 
-**Track Ride Screen** (`app/customer/track-ride.tsx`):
-- 4-step animated ride status stepper (Confirmed → Driver Assigned → Pickup → Delivery)
-- SOS emergency floating button with pulsing animation
-- Share ride details button
-- ETA display badge ("Arriving in ~X min")
-- Payment method badge (Cash/UPI)
-- Cancellation reasons modal with 4 options
+**Users:**
+- PUT `/api/users/profile` — Update profile
+- PUT `/api/users/toggle-online` — Toggle driver online/offline status
 
-**Rate Ride Screen** (`app/customer/rate-ride.tsx`):
-- Trip completion celebration header with animated checkmark
-- 5-star interactive rating with bounce animations
-- Quick feedback tags (Polite Driver, Safe Drive, On Time, etc.)
-- Optional comment input
-- Fare summary with route and price breakdown
+**Bookings:**
+- POST `/api/bookings` — Create booking (customer only)
+- GET `/api/bookings` — Get user's bookings
+- GET `/api/bookings/pending` — Get pending bookings (driver only)
+- GET `/api/bookings/:id` — Get booking by ID
+- PUT `/api/bookings/:id/accept` — Accept booking (driver)
+- PUT `/api/bookings/:id/start` — Start trip with OTP verification (driver)
+- PUT `/api/bookings/:id/complete` — Complete delivery (driver)
+- PUT `/api/bookings/:id/cancel` — Cancel booking with reason
+- PUT `/api/bookings/:id/rate` — Rate completed booking (customer)
 
-**Driver Dashboard** (`app/driver/dashboard.tsx`):
-- Real MapView with Indore location markers
-- Demand heat map badges (High/Medium/Low)
-- Animated stat cards with staggered entrance
-- Weekly earnings bar chart
+**Vehicles:**
+- GET `/api/vehicles` — List active vehicle types with pricing
 
-**Driver Active Ride** (`app/driver/active-ride.tsx`):
-- MapView with pickup (green) and delivery (red) markers
-- Floating ETA badge
-- "Open in Maps" navigation button
-- Animated card entrances
+**Admin:**
+- GET `/api/admin/stats` — Dashboard statistics
+- GET `/api/admin/users` — List all users
+- PUT `/api/admin/users/:id/approve` — Approve driver
+- DELETE `/api/admin/users/:id` — Delete user
+- GET `/api/admin/bookings` — All bookings
+- GET `/api/admin/vehicles` — All vehicles
+- PUT `/api/admin/vehicles/:id` — Update vehicle pricing
+- GET `/api/admin/drivers/online` — Online drivers
 
-**BookingContext enhancements** (`contexts/BookingContext.tsx`):
-- New fields: rating, ratingComment, cancelReason, paymentMethod, estimatedTime
-- New methods: rateBooking(), cancelBookingWithReason()
-- ETA calculation: distance * 3 + 5 minutes
+### Socket.IO Events
+- `driver:location` — Driver sends location update
+- `driver:online` / `driver:offline` — Driver status change
+- `booking:new` — New booking created (broadcast to drivers)
+- `booking:updated` — Booking status changed (broadcast to all)
+- `driver:location:update` — Server broadcasts driver location
 
 ### Key Design Decisions
-
-1. **Offline-first with AsyncStorage**: Bookings and auth data persist locally. This was chosen for simplicity and works without requiring a running backend for the core flow. The backend infrastructure exists for future migration to server-side data.
-
-2. **Demo users built-in**: Two hardcoded demo accounts (customer and driver) allow immediate testing without registration.
-
-3. **Mock locations**: 10 predefined Indore locations are used instead of real geocoding, keeping the app functional without external map APIs.
-
-4. **Flat pricing model**: Three vehicle types (auto, tempo, truck) with base fare + per-km pricing. Distance calculated via Haversine formula.
-
-5. **OTP verification**: Drivers must enter a 4-digit OTP (generated at booking creation) to start a trip, ensuring pickup verification.
-
-6. **Platform-aware components**: Map components have separate native and web implementations. Haptics are conditionally used based on platform.
-
-7. **Extracted animated components**: All animated items (stars, stepper dots, cards, promo cards) are extracted into separate named components to avoid calling useAnimatedStyle inside loops/maps.
+1. **In-memory storage**: Uses Map-based storage designed to mirror MongoDB interface for easy migration
+2. **Mock OTP**: OTP is returned in API response during development, logged to console
+3. **Mock locations**: 10 predefined Indore locations used instead of real geocoding
+4. **Flat pricing**: Auto (₹50 + ₹12/km), Tempo (₹150 + ₹18/km), Truck (₹300 + ₹25/km)
+5. **OTP verification**: 4-digit OTP generated at booking, driver must enter to start trip
+6. **JWT auth**: 7-day token expiry, role-based access control
+7. **Admin panel**: Pure HTML/CSS/JS served from Express, no build step needed
 
 ### Build & Run
-
-- **Development**: Two processes needed — `npm run server:dev` (Express on port 5000) and `npm run expo:dev` (Expo Metro bundler)
-- **Production build**: `npm run expo:static:build` builds web assets, `npm run server:build` bundles server, `npm run server:prod` serves everything
-- **Database**: `npm run db:push` pushes Drizzle schema to PostgreSQL
+- **Development**: Two workflows — `Start Backend` (Express on port 5000) and `Start Frontend` (Expo Metro bundler)
+- **Backend**: `npm run server:dev` — runs Express with tsx
+- **Frontend**: `npm run expo:dev` — runs Expo with environment variables for Replit proxy
 
 ## External Dependencies
-
-- **PostgreSQL**: Required for Drizzle ORM (needs `DATABASE_URL` environment variable). Currently not actively used — the app runs on in-memory/AsyncStorage
-- **Expo Services**: Expo SDK for build tooling, splash screen, fonts, etc.
-- **GitHub Integration**: `scripts/push-to-github.ts` uses Octokit with Replit's GitHub connector for repository sync
-- **No external APIs currently**: Maps use react-native-maps (no API key configured for web), locations are mocked, pricing is calculated locally
+- **Socket.IO**: Real-time communication (socket.io + socket.io-client)
+- **jsonwebtoken**: JWT token generation and verification
+- **Expo Services**: Expo SDK for build tooling, splash screen, fonts, vector icons
+- **No external APIs currently**: Locations are mocked, pricing is calculated locally, OTP is mock
+- **Future integrations**: MongoDB Atlas, Google Maps API, Twilio SMS (connection strings/API keys to be added later)
