@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
@@ -18,12 +20,456 @@ import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 
+function AnimatedStatCard({
+  index,
+  icon,
+  iconColor,
+  iconBg,
+  value,
+  label,
+}: {
+  index: number;
+  icon: React.ReactNode;
+  iconColor: string;
+  iconBg: string;
+  value: string;
+  label: string;
+}) {
+  const translateY = useRef(new Animated.Value(60)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const valueScale = useRef(new Animated.Value(0.8)).current;
+  const valueOpacity = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const delay = index * 100;
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          friction: 6,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    Animated.sequence([
+      Animated.delay(delay + 300),
+      Animated.parallel([
+        Animated.spring(valueScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(valueOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.statCard,
+        {
+          opacity,
+          transform: [{ translateY }, { scale: scaleAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.statCardInner}
+      >
+        <View style={[styles.statIconContainer, { backgroundColor: iconBg }]}>
+          {icon}
+        </View>
+        <Animated.Text
+          style={[
+            styles.statValue,
+            {
+              opacity: valueOpacity,
+              transform: [{ scale: valueScale }],
+            },
+          ]}
+        >
+          {value}
+        </Animated.Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedRequestsButton({ onPress }: { onPress: () => void }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        transform: [
+          {
+            scale: Animated.multiply(pulseAnim, scaleAnim),
+          },
+        ],
+        marginBottom: 20,
+      }}
+    >
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.requestsButton}
+        >
+          <View style={styles.requestsButtonLeft}>
+            <View style={styles.requestsIconContainer}>
+              <MaterialCommunityIcons name="bell-ring-outline" size={22} color={Colors.surface} />
+            </View>
+            <View>
+              <Text style={styles.requestsButtonTitle}>New Ride Requests</Text>
+              <Text style={styles.requestsButtonSub}>Tap to view pending requests</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.surface} />
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedActiveCard({
+  booking,
+  onPress,
+}: {
+  booking: any;
+  onPress: () => void;
+}) {
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const dotScale = useRef(new Animated.Value(1)).current;
+  const dotOpacity = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    glow.start();
+
+    const dotPulse = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(dotScale, {
+            toValue: 1.4,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotOpacity, {
+            toValue: 0.4,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(dotScale, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotOpacity, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    dotPulse.start();
+
+    return () => {
+      glow.stop();
+      dotPulse.stop();
+    };
+  }, []);
+
+  const borderColor = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.primaryLight, Colors.primary],
+  });
+
+  const shadowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.08, 0.25],
+  });
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.activeCard,
+        {
+          borderColor,
+          shadowOpacity,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View style={styles.activeCardHeader}>
+          <View style={styles.activeIndicator}>
+            <Animated.View
+              style={[
+                styles.activeIndicatorDot,
+                {
+                  transform: [{ scale: dotScale }],
+                  opacity: dotOpacity,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.activeCardTitle}>Active Ride</Text>
+          <View style={styles.activeStatusBadge}>
+            <Text style={styles.activeStatusText}>
+              {booking.status === 'accepted'
+                ? 'Accepted'
+                : booking.status === 'in_progress'
+                ? 'In Transit'
+                : 'Pending'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.activeCardBody}>
+          <View style={styles.locationRow}>
+            <View style={styles.locationDot}>
+              <View style={[styles.dot, { backgroundColor: Colors.success }]} />
+            </View>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {booking.pickup.name}
+            </Text>
+          </View>
+          <View style={styles.locationConnector} />
+          <View style={styles.locationRow}>
+            <View style={styles.locationDot}>
+              <View style={[styles.dot, { backgroundColor: Colors.danger }]} />
+            </View>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {booking.delivery.name}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.activeCardFooter}>
+          <Text style={styles.activeCardPrice}>
+            {'\u20B9'}{booking.totalPrice}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedCompletedCard({
+  booking,
+  index,
+  getVehicleIcon,
+}: {
+  booking: any;
+  index: number;
+  getVehicleIcon: (type: string) => string;
+}) {
+  const translateX = useRef(new Animated.Value(100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const delay = index * 100;
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.spring(translateX, {
+          toValue: 0,
+          friction: 7,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.completedCard,
+        {
+          opacity,
+          transform: [{ translateX }, { scale: scaleAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.completedCardInner}
+      >
+        <View style={styles.completedLeft}>
+          <View style={styles.completedIconContainer}>
+            <MaterialCommunityIcons
+              name={getVehicleIcon(booking.vehicleType) as any}
+              size={20}
+              color={Colors.primary}
+            />
+          </View>
+          <View style={styles.completedInfo}>
+            <Text style={styles.completedPickup} numberOfLines={1}>
+              {booking.pickup.name}
+            </Text>
+            <Text style={styles.completedDelivery} numberOfLines={1}>
+              {booking.delivery.name}
+            </Text>
+            <Text style={styles.completedDate}>
+              {new Date(booking.completedAt || booking.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.completedPrice}>
+          {'\u20B9'}{booking.totalPrice}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function DriverDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, logout, token, refreshUser } = useAuth();
   const { bookings, fetchBookings, getActiveBooking } = useBookings();
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
+
+  const onlineGlowAnim = useRef(new Animated.Value(0)).current;
 
   const webTop = Platform.OS === 'web' ? 67 : 0;
   const webBottom = Platform.OS === 'web' ? 34 : 0;
@@ -42,6 +488,29 @@ export default function DriverDashboardScreen() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (user?.isOnline) {
+      const glow = Animated.loop(
+        Animated.sequence([
+          Animated.timing(onlineGlowAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+          Animated.timing(onlineGlowAnim, {
+            toValue: 0.3,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+        ])
+      );
+      glow.start();
+      return () => glow.stop();
+    } else {
+      onlineGlowAnim.setValue(0);
+    }
+  }, [user?.isOnline]);
 
   const handleToggleOnline = async () => {
     setIsTogglingOnline(true);
@@ -86,9 +555,19 @@ export default function DriverDashboardScreen() {
     }
   };
 
+  const onlineGlowColor = onlineGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(16, 185, 129, 0)', 'rgba(16, 185, 129, 0.35)'],
+  });
+
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navy, Colors.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topInset + 12 }]}
+      >
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <View style={styles.avatarContainer}>
@@ -100,7 +579,17 @@ export default function DriverDashboardScreen() {
             </View>
           </View>
           <View style={styles.headerRight}>
-            <View style={styles.toggleContainer}>
+            <Animated.View
+              style={[
+                styles.toggleContainer,
+                user?.isOnline && {
+                  backgroundColor: onlineGlowColor,
+                  borderRadius: 20,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                },
+              ]}
+            >
               <Text style={styles.toggleLabel}>
                 {user?.isOnline ? 'Online' : 'Offline'}
               </Text>
@@ -114,13 +603,13 @@ export default function DriverDashboardScreen() {
                   thumbColor={Colors.surface}
                 />
               )}
-            </View>
+            </Animated.View>
             <TouchableOpacity style={styles.headerButton} onPress={handleLogout}>
               <Feather name="log-out" size={20} color={Colors.surface} />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.content}
@@ -128,129 +617,58 @@ export default function DriverDashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: Colors.primaryLight }]}>
-              <Ionicons name="car" size={20} color={Colors.primary} />
-            </View>
-            <Text style={styles.statValue}>{user?.totalTrips ?? 0}</Text>
-            <Text style={styles.statLabel}>Total Trips</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: Colors.successLight }]}>
-              <MaterialCommunityIcons name="currency-inr" size={20} color={Colors.success} />
-            </View>
-            <Text style={styles.statValue}>{user?.totalEarnings ?? 0}</Text>
-            <Text style={styles.statLabel}>Earnings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: Colors.warningLight }]}>
-              <Ionicons name="star" size={20} color={Colors.warning} />
-            </View>
-            <Text style={styles.statValue}>
-              {user?.rating ? user.rating.toFixed(1) : '0.0'}
-            </Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
+          <AnimatedStatCard
+            index={0}
+            icon={<Ionicons name="car" size={20} color={Colors.primary} />}
+            iconColor={Colors.primary}
+            iconBg={Colors.primaryLight}
+            value={String(user?.totalTrips ?? 0)}
+            label="Total Trips"
+          />
+          <AnimatedStatCard
+            index={1}
+            icon={<MaterialCommunityIcons name="currency-inr" size={20} color={Colors.success} />}
+            iconColor={Colors.success}
+            iconBg={Colors.successLight}
+            value={String(user?.totalEarnings ?? 0)}
+            label="Earnings"
+          />
+          <AnimatedStatCard
+            index={2}
+            icon={<Ionicons name="star" size={20} color={Colors.warning} />}
+            iconColor={Colors.warning}
+            iconBg={Colors.warningLight}
+            value={user?.rating ? user.rating.toFixed(1) : '0.0'}
+            label="Rating"
+          />
         </View>
 
-        <TouchableOpacity
-          style={styles.requestsButton}
+        <AnimatedRequestsButton
           onPress={() => router.push('/driver/requests' as any)}
-        >
-          <View style={styles.requestsButtonLeft}>
-            <View style={styles.requestsIconContainer}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={22} color={Colors.surface} />
-            </View>
-            <View>
-              <Text style={styles.requestsButtonTitle}>New Ride Requests</Text>
-              <Text style={styles.requestsButtonSub}>Tap to view pending requests</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.surface} />
-        </TouchableOpacity>
+        />
 
         {activeBooking && (
-          <TouchableOpacity
-            style={styles.activeCard}
+          <AnimatedActiveCard
+            booking={activeBooking}
             onPress={() =>
               router.push({
                 pathname: '/driver/active-ride' as any,
                 params: { bookingId: activeBooking.id },
               })
             }
-          >
-            <View style={styles.activeCardHeader}>
-              <View style={styles.activeIndicator}>
-                <View style={styles.activeIndicatorDot} />
-              </View>
-              <Text style={styles.activeCardTitle}>Active Ride</Text>
-              <View style={styles.activeStatusBadge}>
-                <Text style={styles.activeStatusText}>
-                  {activeBooking.status === 'accepted'
-                    ? 'Accepted'
-                    : activeBooking.status === 'in_progress'
-                    ? 'In Transit'
-                    : 'Pending'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.activeCardBody}>
-              <View style={styles.locationRow}>
-                <View style={styles.locationDot}>
-                  <View style={[styles.dot, { backgroundColor: Colors.success }]} />
-                </View>
-                <Text style={styles.locationText} numberOfLines={1}>
-                  {activeBooking.pickup.name}
-                </Text>
-              </View>
-              <View style={styles.locationConnector} />
-              <View style={styles.locationRow}>
-                <View style={styles.locationDot}>
-                  <View style={[styles.dot, { backgroundColor: Colors.danger }]} />
-                </View>
-                <Text style={styles.locationText} numberOfLines={1}>
-                  {activeBooking.delivery.name}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.activeCardFooter}>
-              <Text style={styles.activeCardPrice}>
-                {'\u20B9'}{activeBooking.totalPrice}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-            </View>
-          </TouchableOpacity>
+          />
         )}
 
         {completedBookings.length > 0 && (
           <View style={styles.recentSection}>
             <Text style={styles.sectionTitle}>Recent Completed</Text>
-            {completedBookings.map((booking) => (
-              <View key={booking.id} style={styles.completedCard}>
-                <View style={styles.completedLeft}>
-                  <View style={styles.completedIconContainer}>
-                    <MaterialCommunityIcons
-                      name={getVehicleIcon(booking.vehicleType) as any}
-                      size={20}
-                      color={Colors.primary}
-                    />
-                  </View>
-                  <View style={styles.completedInfo}>
-                    <Text style={styles.completedPickup} numberOfLines={1}>
-                      {booking.pickup.name}
-                    </Text>
-                    <Text style={styles.completedDelivery} numberOfLines={1}>
-                      {booking.delivery.name}
-                    </Text>
-                    <Text style={styles.completedDate}>
-                      {new Date(booking.completedAt || booking.createdAt).toLocaleDateString()}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.completedPrice}>
-                  {'\u20B9'}{booking.totalPrice}
-                </Text>
-              </View>
+            {completedBookings.map((booking, index) => (
+              <AnimatedCompletedCard
+                key={booking.id}
+                booking={booking}
+                index={index}
+                getVehicleIcon={getVehicleIcon}
+              />
             ))}
           </View>
         )}
@@ -265,7 +683,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: Colors.navyDark,
     paddingHorizontal: 20,
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
@@ -340,10 +757,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.cardBorder,
+  },
+  statCardInner: {
+    padding: 14,
+    alignItems: 'center',
   },
   statIconContainer: {
     width: 40,
@@ -365,13 +784,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   requestsButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
   },
   requestsButtonLeft: {
     flexDirection: 'row',
@@ -400,20 +817,21 @@ const styles = StyleSheet.create({
   activeCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 16,
     marginBottom: 20,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.primaryLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   activeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+    paddingTop: 16,
+    paddingHorizontal: 16,
   },
   activeIndicator: {
     width: 28,
@@ -449,6 +867,7 @@ const styles = StyleSheet.create({
   },
   activeCardBody: {
     marginBottom: 14,
+    paddingHorizontal: 16,
   },
   locationRow: {
     flexDirection: 'row',
@@ -487,6 +906,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
     paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    marginTop: 0,
   },
   activeCardPrice: {
     fontSize: 18,
@@ -505,13 +927,15 @@ const styles = StyleSheet.create({
   completedCard: {
     backgroundColor: Colors.surface,
     borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  completedCardInner: {
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
   },
   completedLeft: {
     flexDirection: 'row',

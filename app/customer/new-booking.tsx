@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
@@ -34,6 +36,282 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   );
 }
 
+function AnimatedLocationItem({
+  loc,
+  index,
+  isSelected,
+  type,
+  onPress,
+}: {
+  loc: Location;
+  index: number;
+  isSelected: boolean;
+  type: 'pickup' | 'delivery';
+  onPress: () => void;
+}) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 350,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 350,
+        delay: index * 60,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY }, { scale: scaleAnim }],
+      }}
+    >
+      <TouchableOpacity
+        style={[styles.locationItem, isSelected && styles.locationItemSelected]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+      >
+        <View
+          style={[
+            styles.locationIconWrap,
+            isSelected && styles.locationIconWrapSelected,
+          ]}
+        >
+          <Ionicons
+            name={type === 'pickup' ? 'location' : 'flag'}
+            size={20}
+            color={isSelected ? '#FFFFFF' : Colors.primary}
+          />
+        </View>
+        <View style={styles.locationTextWrap}>
+          <Text style={[styles.locationName, isSelected && styles.locationNameSelected]}>
+            {loc.name}
+          </Text>
+          <Text style={styles.locationArea}>{loc.area}</Text>
+        </View>
+        {isSelected && (
+          <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedVehicleCard({
+  vehicle,
+  isActive,
+  onPress,
+}: {
+  vehicle: typeof VEHICLE_OPTIONS[0];
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.93,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ flex: 1, transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[styles.vehicleCard, isActive && styles.vehicleCardActive]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+      >
+        <MaterialCommunityIcons
+          name={vehicle.icon}
+          size={28}
+          color={isActive ? Colors.primary : Colors.textSecondary}
+        />
+        <Text style={[styles.vehicleLabel, isActive && styles.vehicleLabelActive]}>
+          {vehicle.label}
+        </Text>
+        <Text style={[styles.vehiclePrice, isActive && styles.vehiclePriceActive]}>
+          {'\u20B9'}{vehicle.baseFare}+
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function PulsingDistanceBadge({ distance, eta }: { distance: number; eta: number }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.06, duration: 500, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.06, duration: 500, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.distanceBadge,
+        { opacity: fadeAnim, transform: [{ scale: pulseAnim }] },
+      ]}
+    >
+      <Ionicons name="navigate-outline" size={16} color={Colors.primary} />
+      <Text style={styles.distanceText}>{distance} km</Text>
+      <View style={styles.distanceSep} />
+      <Ionicons name="time-outline" size={16} color={Colors.primary} />
+      <Text style={styles.distanceText}>{eta} min</Text>
+    </Animated.View>
+  );
+}
+
+function AnimatedPriceCard({ children }: { children: React.ReactNode }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 500,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function ShimmerButton({
+  onPress,
+  loading,
+  totalPrice,
+}: {
+  onPress: () => void;
+  loading: boolean;
+  totalPrice: number;
+}) {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const shimmerTranslate = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-200, 400],
+  });
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={loading}
+      activeOpacity={0.8}
+      style={[loading && styles.confirmButtonDisabled]}
+    >
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.confirmButton}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <>
+            <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+            <Text style={styles.confirmButtonPrice}>{'\u20B9'}{totalPrice}</Text>
+          </>
+        )}
+        <Animated.View
+          style={[
+            styles.shimmerOverlay,
+            { transform: [{ translateX: shimmerTranslate }] },
+          ]}
+        >
+          <LinearGradient
+            colors={[
+              'rgba(255,255,255,0)',
+              'rgba(255,255,255,0.15)',
+              'rgba(255,255,255,0)',
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
 export default function NewBookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -45,6 +323,10 @@ export default function NewBookingScreen() {
   const [vehicleType, setVehicleType] = useState('auto');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi'>('cash');
   const [loading, setLoading] = useState(false);
+
+  const stepFadeAnim = useRef(new Animated.Value(1)).current;
+  const stepSlideAnim = useRef(new Animated.Value(0)).current;
+  const prevStepRef = useRef<string>('pickup');
 
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -59,6 +341,28 @@ export default function NewBookingScreen() {
   const distanceCharge = Math.round(distance * selectedVehicle.perKm * 10) / 10;
   const totalPrice = Math.round((basePrice + distanceCharge) * 10) / 10;
   const eta = Math.round(distance * 3 + 5);
+
+  const currentStep = !pickup ? 'pickup' : !delivery ? 'delivery' : 'summary';
+
+  useEffect(() => {
+    if (prevStepRef.current !== currentStep) {
+      prevStepRef.current = currentStep;
+      stepFadeAnim.setValue(0);
+      stepSlideAnim.setValue(30);
+      Animated.parallel([
+        Animated.timing(stepFadeAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(stepSlideAnim, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [currentStep]);
 
   const handleConfirm = async () => {
     if (!pickup || !delivery) return;
@@ -85,8 +389,6 @@ export default function NewBookingScreen() {
     }
   };
 
-  const currentStep = !pickup ? 'pickup' : !delivery ? 'delivery' : 'summary';
-
   const renderLocationList = (type: 'pickup' | 'delivery') => {
     const selected = type === 'pickup' ? pickup : delivery;
     const otherSelected = type === 'pickup' ? delivery : pickup;
@@ -97,12 +399,15 @@ export default function NewBookingScreen() {
           {type === 'pickup' ? 'Select Pickup Location' : 'Select Delivery Location'}
         </Text>
         <ScrollView style={styles.locationScroll} showsVerticalScrollIndicator={false}>
-          {MOCK_LOCATIONS.filter((loc) => loc.id !== otherSelected?.id).map((loc) => {
+          {MOCK_LOCATIONS.filter((loc) => loc.id !== otherSelected?.id).map((loc, index) => {
             const isSelected = selected?.id === loc.id;
             return (
-              <TouchableOpacity
+              <AnimatedLocationItem
                 key={loc.id}
-                style={[styles.locationItem, isSelected && styles.locationItemSelected]}
+                loc={loc}
+                index={index}
+                isSelected={isSelected}
+                type={type}
                 onPress={() => {
                   if (type === 'pickup') {
                     setPickup(loc);
@@ -110,32 +415,7 @@ export default function NewBookingScreen() {
                     setDelivery(loc);
                   }
                 }}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.locationIconWrap,
-                    isSelected && styles.locationIconWrapSelected,
-                  ]}
-                >
-                  <Ionicons
-                    name={type === 'pickup' ? 'location' : 'flag'}
-                    size={20}
-                    color={isSelected ? '#FFFFFF' : Colors.primary}
-                  />
-                </View>
-                <View style={styles.locationTextWrap}>
-                  <Text
-                    style={[styles.locationName, isSelected && styles.locationNameSelected]}
-                  >
-                    {loc.name}
-                  </Text>
-                  <Text style={styles.locationArea}>{loc.area}</Text>
-                </View>
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
-                )}
-              </TouchableOpacity>
+              />
             );
           })}
         </ScrollView>
@@ -173,59 +453,40 @@ export default function NewBookingScreen() {
         </View>
       </View>
 
-      <View style={styles.distanceBadge}>
-        <Ionicons name="navigate-outline" size={16} color={Colors.primary} />
-        <Text style={styles.distanceText}>{distance} km</Text>
-        <View style={styles.distanceSep} />
-        <Ionicons name="time-outline" size={16} color={Colors.primary} />
-        <Text style={styles.distanceText}>{eta} min</Text>
-      </View>
+      <PulsingDistanceBadge distance={distance} eta={eta} />
 
       <Text style={styles.sectionTitle}>Select Vehicle</Text>
       <View style={styles.vehicleRow}>
-        {VEHICLE_OPTIONS.map((v) => {
-          const isActive = vehicleType === v.type;
-          return (
-            <TouchableOpacity
-              key={v.type}
-              style={[styles.vehicleCard, isActive && styles.vehicleCardActive]}
-              onPress={() => setVehicleType(v.type)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={v.icon}
-                size={28}
-                color={isActive ? Colors.primary : Colors.textSecondary}
-              />
-              <Text style={[styles.vehicleLabel, isActive && styles.vehicleLabelActive]}>
-                {v.label}
-              </Text>
-              <Text style={[styles.vehiclePrice, isActive && styles.vehiclePriceActive]}>
-                {'\u20B9'}{v.baseFare}+
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        {VEHICLE_OPTIONS.map((v) => (
+          <AnimatedVehicleCard
+            key={v.type}
+            vehicle={v}
+            isActive={vehicleType === v.type}
+            onPress={() => setVehicleType(v.type)}
+          />
+        ))}
       </View>
 
-      <View style={styles.priceCard}>
-        <Text style={styles.priceCardTitle}>Fare Breakdown</Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Base Fare</Text>
-          <Text style={styles.priceValue}>{'\u20B9'}{basePrice}</Text>
+      <AnimatedPriceCard>
+        <View style={styles.priceCard}>
+          <Text style={styles.priceCardTitle}>Fare Breakdown</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Base Fare</Text>
+            <Text style={styles.priceValue}>{'\u20B9'}{basePrice}</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>
+              Distance ({distance} km x {'\u20B9'}{selectedVehicle.perKm}/km)
+            </Text>
+            <Text style={styles.priceValue}>{'\u20B9'}{distanceCharge}</Text>
+          </View>
+          <View style={styles.priceDivider} />
+          <View style={styles.priceRow}>
+            <Text style={styles.priceTotalLabel}>Total</Text>
+            <Text style={styles.priceTotalValue}>{'\u20B9'}{totalPrice}</Text>
+          </View>
         </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>
-            Distance ({distance} km x {'\u20B9'}{selectedVehicle.perKm}/km)
-          </Text>
-          <Text style={styles.priceValue}>{'\u20B9'}{distanceCharge}</Text>
-        </View>
-        <View style={styles.priceDivider} />
-        <View style={styles.priceRow}>
-          <Text style={styles.priceTotalLabel}>Total</Text>
-          <Text style={styles.priceTotalValue}>{'\u20B9'}{totalPrice}</Text>
-        </View>
-      </View>
+      </AnimatedPriceCard>
 
       <Text style={styles.sectionTitle}>Payment Method</Text>
       <View style={styles.paymentRow}>
@@ -275,40 +536,39 @@ export default function NewBookingScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.confirmButton, loading && styles.confirmButtonDisabled]}
-        onPress={handleConfirm}
-        disabled={loading}
-        activeOpacity={0.8}
-      >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <>
-            <Text style={styles.confirmButtonText}>Confirm Booking</Text>
-            <Text style={styles.confirmButtonPrice}>{'\u20B9'}{totalPrice}</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      <View style={{ marginHorizontal: 16, marginTop: 24 }}>
+        <ShimmerButton
+          onPress={handleConfirm}
+          loading={loading}
+          totalPrice={totalPrice}
+        />
+      </View>
       <View style={{ height: 20 }} />
     </ScrollView>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: topInset, paddingBottom: bottomInset }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {currentStep === 'pickup'
-            ? 'Pickup Location'
-            : currentStep === 'delivery'
-            ? 'Delivery Location'
-            : 'Booking Summary'}
-        </Text>
-        <View style={styles.headerRight} />
-      </View>
+    <View style={[styles.container, { paddingBottom: bottomInset }]}>
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navy]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: topInset }]}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {currentStep === 'pickup'
+              ? 'Pickup Location'
+              : currentStep === 'delivery'
+              ? 'Delivery Location'
+              : 'Booking Summary'}
+          </Text>
+          <View style={styles.headerRight} />
+        </View>
+      </LinearGradient>
 
       {pickup && currentStep !== 'pickup' && (
         <View style={styles.selectedBanner}>
@@ -328,9 +588,19 @@ export default function NewBookingScreen() {
         </View>
       )}
 
-      {currentStep === 'pickup' && renderLocationList('pickup')}
-      {currentStep === 'delivery' && renderLocationList('delivery')}
-      {currentStep === 'summary' && renderSummary()}
+      <Animated.View
+        style={[
+          styles.stepContainer,
+          {
+            opacity: stepFadeAnim,
+            transform: [{ translateY: stepSlideAnim }],
+          },
+        ]}
+      >
+        {currentStep === 'pickup' && renderLocationList('pickup')}
+        {currentStep === 'delivery' && renderLocationList('delivery')}
+        {currentStep === 'summary' && renderSummary()}
+      </Animated.View>
     </View>
   );
 }
@@ -340,14 +610,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  headerGradient: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.cardBorder,
   },
   backButton: {
     width: 40,
@@ -360,7 +631,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
+    color: '#FFFFFF',
   },
   headerRight: {
     width: 40,
@@ -378,6 +649,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: Colors.text,
     flexShrink: 1,
+  },
+  stepContainer: {
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 15,
@@ -520,7 +794,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   vehicleCard: {
-    flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 14,
     paddingVertical: 16,
@@ -629,12 +902,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    marginHorizontal: 16,
-    marginTop: 24,
     borderRadius: 14,
     paddingVertical: 16,
     gap: 8,
+    overflow: 'hidden',
   },
   confirmButtonDisabled: {
     opacity: 0.6,
@@ -649,5 +920,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
     opacity: 0.9,
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 120,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,232 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings, BookingData } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
+
+function ShimmerButton({ onPress, disabled, isLoading }: { onPress: () => void; disabled: boolean; isLoading: boolean }) {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const shimmerTranslate = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-200, 200],
+  });
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.8}
+      style={[disabled && styles.acceptButtonDisabled]}
+    >
+      <LinearGradient
+        colors={[Colors.success, '#059669']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.acceptButton}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color={Colors.surface} />
+        ) : (
+          <>
+            <Ionicons name="checkmark-circle" size={20} color={Colors.surface} />
+            <Text style={styles.acceptButtonText}>Accept Ride</Text>
+          </>
+        )}
+        <Animated.View
+          style={[
+            styles.shimmerOverlay,
+            { transform: [{ translateX: shimmerTranslate }] },
+          ]}
+        >
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
+function AnimatedRequestCard({
+  item,
+  index,
+  acceptingId,
+  onAccept,
+  getVehicleIcon,
+}: {
+  item: BookingData;
+  index: number;
+  acceptingId: string | null;
+  onAccept: (id: string) => void;
+  getVehicleIcon: (type: string) => string;
+}) {
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const badgeBounce = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const delay = index * 80;
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      Animated.spring(badgeBounce, {
+        toValue: 1,
+        friction: 4,
+        tension: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          opacity: opacityAnim,
+          transform: [
+            { translateY: slideAnim },
+            { scale: scaleAnim },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View style={styles.cardHeader}>
+          <Animated.View style={[styles.vehicleBadge, { transform: [{ scale: badgeBounce }] }]}>
+            <MaterialCommunityIcons
+              name={getVehicleIcon(item.vehicleType) as any}
+              size={18}
+              color={Colors.primary}
+            />
+            <Text style={styles.vehicleText}>
+              {item.vehicleType.charAt(0).toUpperCase() + item.vehicleType.slice(1)}
+            </Text>
+          </Animated.View>
+          <Text style={styles.cardPrice}>{'\u20B9'}{item.totalPrice}</Text>
+        </View>
+
+        <View style={styles.cardLocations}>
+          <View style={styles.locationRow}>
+            <View style={styles.locationDot}>
+              <View style={[styles.dot, { backgroundColor: Colors.success }]} />
+            </View>
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationLabel}>Pickup</Text>
+              <Text style={styles.locationName} numberOfLines={1}>{item.pickup.name}</Text>
+              <Text style={styles.locationArea} numberOfLines={1}>{item.pickup.area}</Text>
+            </View>
+          </View>
+          <View style={styles.locationConnector} />
+          <View style={styles.locationRow}>
+            <View style={styles.locationDot}>
+              <View style={[styles.dot, { backgroundColor: Colors.danger }]} />
+            </View>
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationLabel}>Delivery</Text>
+              <Text style={styles.locationName} numberOfLines={1}>{item.delivery.name}</Text>
+              <Text style={styles.locationArea} numberOfLines={1}>{item.delivery.area}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.cardDetails}>
+          <View style={styles.detailItem}>
+            <Feather name="navigation" size={14} color={Colors.textSecondary} />
+            <Text style={styles.detailText}>{item.distance} km</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Feather name="clock" size={14} color={Colors.textSecondary} />
+            <Text style={styles.detailText}>{item.estimatedTime} min</Text>
+          </View>
+        </View>
+
+        <ShimmerButton
+          onPress={() => onAccept(item.id)}
+          disabled={acceptingId === item.id}
+          isLoading={acceptingId === item.id}
+        />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedEmptyState() {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
+      <View style={styles.emptyIconContainer}>
+        <MaterialCommunityIcons name="car-off" size={48} color={Colors.textTertiary} />
+      </View>
+      <Text style={styles.emptyTitle}>No pending requests</Text>
+      <Text style={styles.emptySubtitle}>New ride requests will appear here</Text>
+    </Animated.View>
+  );
+}
 
 export default function DriverRequestsScreen() {
   const router = useRouter();
@@ -81,93 +300,30 @@ export default function DriverRequestsScreen() {
     }
   };
 
-  const renderBookingCard = ({ item }: { item: BookingData }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.vehicleBadge}>
-          <MaterialCommunityIcons
-            name={getVehicleIcon(item.vehicleType) as any}
-            size={18}
-            color={Colors.primary}
-          />
-          <Text style={styles.vehicleText}>
-            {item.vehicleType.charAt(0).toUpperCase() + item.vehicleType.slice(1)}
-          </Text>
-        </View>
-        <Text style={styles.cardPrice}>{'\u20B9'}{item.totalPrice}</Text>
-      </View>
-
-      <View style={styles.cardLocations}>
-        <View style={styles.locationRow}>
-          <View style={styles.locationDot}>
-            <View style={[styles.dot, { backgroundColor: Colors.success }]} />
-          </View>
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationLabel}>Pickup</Text>
-            <Text style={styles.locationName} numberOfLines={1}>{item.pickup.name}</Text>
-            <Text style={styles.locationArea} numberOfLines={1}>{item.pickup.area}</Text>
-          </View>
-        </View>
-        <View style={styles.locationConnector} />
-        <View style={styles.locationRow}>
-          <View style={styles.locationDot}>
-            <View style={[styles.dot, { backgroundColor: Colors.danger }]} />
-          </View>
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationLabel}>Delivery</Text>
-            <Text style={styles.locationName} numberOfLines={1}>{item.delivery.name}</Text>
-            <Text style={styles.locationArea} numberOfLines={1}>{item.delivery.area}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.cardDetails}>
-        <View style={styles.detailItem}>
-          <Feather name="navigation" size={14} color={Colors.textSecondary} />
-          <Text style={styles.detailText}>{item.distance} km</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Feather name="clock" size={14} color={Colors.textSecondary} />
-          <Text style={styles.detailText}>{item.estimatedTime} min</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.acceptButton, acceptingId === item.id && styles.acceptButtonDisabled]}
-        onPress={() => handleAccept(item.id)}
-        disabled={acceptingId === item.id}
-      >
-        {acceptingId === item.id ? (
-          <ActivityIndicator size="small" color={Colors.surface} />
-        ) : (
-          <>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.surface} />
-            <Text style={styles.acceptButtonText}>Accept Ride</Text>
-          </>
-        )}
-      </TouchableOpacity>
-    </View>
+  const renderBookingCard = ({ item, index }: { item: BookingData; index: number }) => (
+    <AnimatedRequestCard
+      item={item}
+      index={index}
+      acceptingId={acceptingId}
+      onAccept={handleAccept}
+      getVehicleIcon={getVehicleIcon}
+    />
   );
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <MaterialCommunityIcons name="car-off" size={48} color={Colors.textTertiary} />
-      </View>
-      <Text style={styles.emptyTitle}>No pending requests</Text>
-      <Text style={styles.emptySubtitle}>New ride requests will appear here</Text>
-    </View>
-  );
+  const renderEmpty = () => <AnimatedEmptyState />;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navy]}
+        style={[styles.header, { paddingTop: topInset + 12 }]}
+      >
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.surface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ride Requests</Text>
         <View style={styles.headerSpacer} />
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -198,13 +354,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: Colors.navyDark,
     paddingHorizontal: 20,
     paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    overflow: 'hidden',
   },
   backButton: {
     width: 40,
@@ -340,13 +496,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   acceptButton: {
-    backgroundColor: Colors.success,
     borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    overflow: 'hidden',
   },
   acceptButtonDisabled: {
     opacity: 0.7,
@@ -355,6 +511,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.surface,
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 120,
   },
   emptyContainer: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
 
@@ -47,13 +49,338 @@ function getStepIndex(status: string): number {
   }
 }
 
+function AnimatedCard({ delay, children, style, fromRight }: { delay: number; children: React.ReactNode; style?: any; fromRight?: boolean }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 500,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [30, 0],
+  });
+
+  const translateX = fromRight
+    ? anim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] })
+    : new Animated.Value(0);
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: anim,
+          transform: [{ translateY }, { translateX: translateX as any }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function StepItem({
+  step,
+  index,
+  isCompleted,
+  isActive,
+  isPending,
+  isLast,
+  dotAnim,
+}: {
+  step: { label: string; icon: string };
+  index: number;
+  isCompleted: boolean;
+  isActive: boolean;
+  isPending: boolean;
+  isLast: boolean;
+  dotAnim: Animated.Value;
+}) {
+  const scaleAnim = useRef(new Animated.Value(isCompleted ? 1 : 0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isCompleted) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 1.3, duration: 200, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isCompleted]);
+
+  useEffect(() => {
+    if (isActive) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isActive]);
+
+  const dotScale = dotAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
+  });
+
+  const dotOpacity = dotAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.4],
+  });
+
+  const glowScale = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.8],
+  });
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 0],
+  });
+
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepIndicatorColumn}>
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+          {isActive && (
+            <Animated.View
+              style={[
+                styles.glowRing,
+                {
+                  transform: [{ scale: glowScale }],
+                  opacity: glowOpacity,
+                },
+              ]}
+            />
+          )}
+          <Animated.View
+            style={[
+              styles.stepCircle,
+              isCompleted && styles.stepCircleCompleted,
+              isActive && styles.stepCircleActive,
+              isPending && styles.stepCirclePending,
+              isCompleted && { transform: [{ scale: scaleAnim }] },
+            ]}
+          >
+            {isCompleted ? (
+              <Ionicons name="checkmark" size={14} color={Colors.surface} />
+            ) : isActive ? (
+              <Animated.View
+                style={[
+                  styles.activeDot,
+                  { transform: [{ scale: dotScale }], opacity: dotOpacity },
+                ]}
+              />
+            ) : (
+              <View style={styles.pendingDot} />
+            )}
+          </Animated.View>
+        </View>
+        {!isLast && (
+          <View
+            style={[
+              styles.stepLine,
+              isCompleted && styles.stepLineCompleted,
+              isActive && styles.stepLineActive,
+            ]}
+          />
+        )}
+      </View>
+      <View style={styles.stepContent}>
+        <Text
+          style={[
+            styles.stepLabel,
+            isCompleted && styles.stepLabelCompleted,
+            isActive && styles.stepLabelActive,
+          ]}
+        >
+          {step.label}
+        </Text>
+        {isActive && <Text style={styles.stepActiveHint}>In progress</Text>}
+        {isCompleted && <Text style={styles.stepCompletedHint}>Done</Text>}
+      </View>
+    </View>
+  );
+}
+
+function OtpDigitBox({ digit, index }: { digit: string; index: number }) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      delay: index * 120,
+      friction: 5,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.otpDigitBox,
+        { transform: [{ scale: scaleAnim }] },
+      ]}
+    >
+      <Text style={styles.otpDigit}>{digit}</Text>
+    </Animated.View>
+  );
+}
+
+function SOSButton({ onPress }: { onPress: () => void }) {
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  const pulseScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.08],
+  });
+
+  const pulseOpacity = pulseAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.85, 1],
+  });
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseScale }], opacity: pulseOpacity }}>
+      <TouchableOpacity onPress={onPress} style={styles.sosButton}>
+        <MaterialCommunityIcons name="phone-alert" size={20} color={Colors.surface} />
+        <Text style={styles.sosText}>SOS</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function CancelModal({
+  visible,
+  onClose,
+  onConfirm,
+  bottomInset,
+  cancelling,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  bottomInset: number;
+  cancelling: boolean;
+}) {
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setShow(true);
+      setSelectedReason(null);
+      Animated.parallel([
+        Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 65, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 300, duration: 250, useNativeDriver: true }),
+      ]).start(() => {
+        setShow(false);
+      });
+    }
+  }, [visible]);
+
+  if (!show && !visible) return null;
+
+  return (
+    <Modal visible={show} transparent animationType="none" onRequestClose={onClose}>
+      <View style={styles.modalOverlayContainer}>
+        <Animated.View style={[styles.modalBackdrop, { opacity: backdropAnim }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.modalContent,
+            { paddingBottom: bottomInset + 20, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Cancel Booking</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.modalSubtitle}>Please select a reason for cancellation</Text>
+          {CANCEL_REASONS.map((reason) => (
+            <TouchableOpacity
+              key={reason}
+              style={[
+                styles.reasonOption,
+                selectedReason === reason && styles.reasonOptionSelected,
+              ]}
+              onPress={() => setSelectedReason(reason)}
+            >
+              <View
+                style={[
+                  styles.reasonRadio,
+                  selectedReason === reason && styles.reasonRadioSelected,
+                ]}
+              >
+                {selectedReason === reason && <View style={styles.reasonRadioDot} />}
+              </View>
+              <Text
+                style={[
+                  styles.reasonText,
+                  selectedReason === reason && styles.reasonTextSelected,
+                ]}
+              >
+                {reason}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[
+              styles.confirmCancelButton,
+              !selectedReason && styles.confirmCancelButtonDisabled,
+            ]}
+            onPress={() => selectedReason && onConfirm(selectedReason)}
+            disabled={!selectedReason || cancelling}
+          >
+            {cancelling ? (
+              <ActivityIndicator color={Colors.surface} />
+            ) : (
+              <Text style={styles.confirmCancelText}>Confirm Cancellation</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function TrackRideScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const insets = useSafeAreaInsets();
   const { bookings, fetchBookings, cancelBooking, getBookingById } = useBookings();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const dotAnim = useRef(new Animated.Value(0)).current;
   const hasNavigated = useRef(false);
@@ -92,14 +419,14 @@ export default function TrackRideScreen() {
     }
   }, [booking?.status]);
 
-  const handleCancel = async () => {
-    if (!selectedReason || !bookingId) return;
+  const handleCancel = useCallback(async (reason: string) => {
+    if (!bookingId) return;
     setCancelling(true);
-    await cancelBooking(bookingId as string, selectedReason);
+    await cancelBooking(bookingId as string, reason);
     setCancelling(false);
     setCancelModalVisible(false);
     router.back();
-  };
+  }, [bookingId, cancelBooking, router]);
 
   const handleSOS = () => {
     Alert.alert('SOS', 'Are you sure you want to trigger an emergency alert?', [
@@ -126,280 +453,179 @@ export default function TrackRideScreen() {
   const currentStep = getStepIndex(booking.status);
   const isCancelled = booking.status === 'cancelled';
 
-  const dotScale = dotAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.5],
-  });
-
-  const dotOpacity = dotAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.3],
-  });
-
   return (
-    <View style={[styles.container, { paddingTop: topInset, paddingBottom: bottomInset }]}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingBottom: bottomInset }]}>
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navy]}
+        style={[styles.header, { paddingTop: topInset + 8 }]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={24} color={Colors.surface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Track Ride</Text>
-        <TouchableOpacity onPress={handleSOS} style={styles.sosButton}>
-          <MaterialCommunityIcons name="phone-alert" size={20} color={Colors.surface} />
-          <Text style={styles.sosText}>SOS</Text>
-        </TouchableOpacity>
-      </View>
+        <SOSButton onPress={handleSOS} />
+      </LinearGradient>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isCancelled ? (
-          <View style={styles.cancelledCard}>
-            <Ionicons name="close-circle" size={48} color={Colors.danger} />
-            <Text style={styles.cancelledTitle}>Booking Cancelled</Text>
-            {booking.cancelReason && (
-              <Text style={styles.cancelledReason}>Reason: {booking.cancelReason}</Text>
-            )}
-          </View>
+          <AnimatedCard delay={0}>
+            <View style={styles.cancelledCard}>
+              <Ionicons name="close-circle" size={48} color={Colors.danger} />
+              <Text style={styles.cancelledTitle}>Booking Cancelled</Text>
+              {booking.cancelReason && (
+                <Text style={styles.cancelledReason}>Reason: {booking.cancelReason}</Text>
+              )}
+            </View>
+          </AnimatedCard>
         ) : (
           <>
-            <View style={styles.stepsCard}>
-              <Text style={styles.sectionTitle}>Ride Status</Text>
-              <View style={styles.stepsContainer}>
-                {STEPS.map((step, index) => {
-                  const isCompleted = index < currentStep;
-                  const isActive = index === currentStep;
-                  const isPending = index > currentStep;
-
-                  let stepColor = Colors.textTertiary;
-                  if (isCompleted) stepColor = Colors.success;
-                  if (isActive) stepColor = Colors.primary;
-
-                  return (
-                    <View key={step.label} style={styles.stepRow}>
-                      <View style={styles.stepIndicatorColumn}>
-                        <View
-                          style={[
-                            styles.stepCircle,
-                            isCompleted && styles.stepCircleCompleted,
-                            isActive && styles.stepCircleActive,
-                            isPending && styles.stepCirclePending,
-                          ]}
-                        >
-                          {isCompleted ? (
-                            <Ionicons name="checkmark" size={14} color={Colors.surface} />
-                          ) : isActive ? (
-                            <Animated.View
-                              style={[
-                                styles.activeDot,
-                                { transform: [{ scale: dotScale }], opacity: dotOpacity },
-                              ]}
-                            />
-                          ) : (
-                            <View style={styles.pendingDot} />
-                          )}
-                        </View>
-                        {index < STEPS.length - 1 && (
-                          <View
-                            style={[
-                              styles.stepLine,
-                              isCompleted && styles.stepLineCompleted,
-                              isActive && styles.stepLineActive,
-                            ]}
-                          />
-                        )}
-                      </View>
-                      <View style={styles.stepContent}>
-                        <Text
-                          style={[
-                            styles.stepLabel,
-                            isCompleted && styles.stepLabelCompleted,
-                            isActive && styles.stepLabelActive,
-                          ]}
-                        >
-                          {step.label}
-                        </Text>
-                        {isActive && (
-                          <Text style={styles.stepActiveHint}>In progress</Text>
-                        )}
-                        {isCompleted && (
-                          <Text style={styles.stepCompletedHint}>Done</Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            {booking.driverName && (
-              <View style={styles.driverCard}>
-                <Text style={styles.sectionTitle}>Driver Details</Text>
-                <View style={styles.driverInfo}>
-                  <View style={styles.driverAvatar}>
-                    <Ionicons name="person" size={28} color={Colors.primary} />
-                  </View>
-                  <View style={styles.driverDetails}>
-                    <Text style={styles.driverName}>{booking.driverName}</Text>
-                    {booking.driverPhone && (
-                      <View style={styles.driverRow}>
-                        <Feather name="phone" size={14} color={Colors.textSecondary} />
-                        <Text style={styles.driverSubtext}>{booking.driverPhone}</Text>
-                      </View>
-                    )}
-                    {booking.driverVehicleNumber && (
-                      <View style={styles.driverRow}>
-                        <MaterialCommunityIcons name="truck" size={14} color={Colors.textSecondary} />
-                        <Text style={styles.driverSubtext}>{booking.driverVehicleNumber}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {booking.driverPhone && (
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(`tel:${booking.driverPhone}`)}
-                      style={styles.callButton}
-                    >
-                      <Ionicons name="call" size={20} color={Colors.surface} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {booking.status === 'accepted' && booking.otp && (
-              <View style={styles.otpCard}>
-                <Text style={styles.otpTitle}>Verification OTP</Text>
-                <Text style={styles.otpSubtitle}>Share this OTP with your driver</Text>
-                <View style={styles.otpContainer}>
-                  {booking.otp.split('').map((digit, i) => (
-                    <View key={i} style={styles.otpDigitBox}>
-                      <Text style={styles.otpDigit}>{digit}</Text>
-                    </View>
+            <AnimatedCard delay={0}>
+              <View style={styles.stepsCard}>
+                <Text style={styles.sectionTitle}>Ride Status</Text>
+                <View style={styles.stepsContainer}>
+                  {STEPS.map((step, index) => (
+                    <StepItem
+                      key={step.label}
+                      step={step}
+                      index={index}
+                      isCompleted={index < currentStep}
+                      isActive={index === currentStep}
+                      isPending={index > currentStep}
+                      isLast={index === STEPS.length - 1}
+                      dotAnim={dotAnim}
+                    />
                   ))}
                 </View>
               </View>
+            </AnimatedCard>
+
+            {booking.driverName && (
+              <AnimatedCard delay={120} fromRight>
+                <View style={styles.driverCard}>
+                  <Text style={styles.sectionTitle}>Driver Details</Text>
+                  <View style={styles.driverInfo}>
+                    <View style={styles.driverAvatar}>
+                      <Ionicons name="person" size={28} color={Colors.primary} />
+                    </View>
+                    <View style={styles.driverDetails}>
+                      <Text style={styles.driverName}>{booking.driverName}</Text>
+                      {booking.driverPhone && (
+                        <View style={styles.driverRow}>
+                          <Feather name="phone" size={14} color={Colors.textSecondary} />
+                          <Text style={styles.driverSubtext}>{booking.driverPhone}</Text>
+                        </View>
+                      )}
+                      {booking.driverVehicleNumber && (
+                        <View style={styles.driverRow}>
+                          <MaterialCommunityIcons name="truck" size={14} color={Colors.textSecondary} />
+                          <Text style={styles.driverSubtext}>{booking.driverVehicleNumber}</Text>
+                        </View>
+                      )}
+                    </View>
+                    {booking.driverPhone && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(`tel:${booking.driverPhone}`)}
+                        style={styles.callButton}
+                      >
+                        <Ionicons name="call" size={20} color={Colors.surface} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </AnimatedCard>
             )}
 
-            <View style={styles.routeCard}>
-              <Text style={styles.sectionTitle}>Route</Text>
-              <View style={styles.routeRow}>
-                <View style={styles.routeIconColumn}>
-                  <Ionicons name="radio-button-on" size={16} color={Colors.success} />
-                  <View style={styles.routeDottedLine} />
-                  <Ionicons name="location" size={16} color={Colors.danger} />
-                </View>
-                <View style={styles.routeDetails}>
-                  <View style={styles.routePoint}>
-                    <Text style={styles.routeLabel}>Pickup</Text>
-                    <Text style={styles.routeName}>{booking.pickup.name}</Text>
-                    <Text style={styles.routeArea}>{booking.pickup.area}</Text>
-                  </View>
-                  <View style={styles.routeDivider} />
-                  <View style={styles.routePoint}>
-                    <Text style={styles.routeLabel}>Delivery</Text>
-                    <Text style={styles.routeName}>{booking.delivery.name}</Text>
-                    <Text style={styles.routeArea}>{booking.delivery.area}</Text>
+            {booking.status === 'accepted' && booking.otp && (
+              <AnimatedCard delay={240}>
+                <View style={styles.otpCard}>
+                  <Text style={styles.otpTitle}>Verification OTP</Text>
+                  <Text style={styles.otpSubtitle}>Share this OTP with your driver</Text>
+                  <View style={styles.otpContainer}>
+                    {booking.otp.split('').map((digit, i) => (
+                      <OtpDigitBox key={i} digit={digit} index={i} />
+                    ))}
                   </View>
                 </View>
-              </View>
-            </View>
+              </AnimatedCard>
+            )}
 
-            <View style={styles.priceCard}>
-              <Text style={styles.sectionTitle}>Fare Breakdown</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Base Price</Text>
-                <Text style={styles.priceValue}>Rs. {booking.basePrice.toFixed(2)}</Text>
+            <AnimatedCard delay={360}>
+              <View style={styles.routeCard}>
+                <Text style={styles.sectionTitle}>Route</Text>
+                <View style={styles.routeRow}>
+                  <View style={styles.routeIconColumn}>
+                    <Ionicons name="radio-button-on" size={16} color={Colors.success} />
+                    <View style={styles.routeDottedLine} />
+                    <Ionicons name="location" size={16} color={Colors.danger} />
+                  </View>
+                  <View style={styles.routeDetails}>
+                    <View style={styles.routePoint}>
+                      <Text style={styles.routeLabel}>Pickup</Text>
+                      <Text style={styles.routeName}>{booking.pickup.name}</Text>
+                      <Text style={styles.routeArea}>{booking.pickup.area}</Text>
+                    </View>
+                    <View style={styles.routeDivider} />
+                    <View style={styles.routePoint}>
+                      <Text style={styles.routeLabel}>Delivery</Text>
+                      <Text style={styles.routeName}>{booking.delivery.name}</Text>
+                      <Text style={styles.routeArea}>{booking.delivery.area}</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Distance Charge ({booking.distance} km)</Text>
-                <Text style={styles.priceValue}>Rs. {booking.distanceCharge.toFixed(2)}</Text>
+            </AnimatedCard>
+
+            <AnimatedCard delay={480}>
+              <View style={styles.priceCard}>
+                <Text style={styles.sectionTitle}>Fare Breakdown</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Base Price</Text>
+                  <Text style={styles.priceValue}>Rs. {booking.basePrice.toFixed(2)}</Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Distance Charge ({booking.distance} km)</Text>
+                  <Text style={styles.priceValue}>Rs. {booking.distanceCharge.toFixed(2)}</Text>
+                </View>
+                <View style={styles.priceDivider} />
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceTotalLabel}>Total</Text>
+                  <Text style={styles.priceTotalValue}>Rs. {booking.totalPrice.toFixed(2)}</Text>
+                </View>
+                <View style={styles.paymentMethodRow}>
+                  <MaterialCommunityIcons
+                    name={booking.paymentMethod === 'cash' ? 'cash' : 'cellphone'}
+                    size={16}
+                    color={Colors.textSecondary}
+                  />
+                  <Text style={styles.paymentMethodText}>
+                    {booking.paymentMethod === 'cash' ? 'Cash Payment' : 'UPI Payment'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.priceDivider} />
-              <View style={styles.priceRow}>
-                <Text style={styles.priceTotalLabel}>Total</Text>
-                <Text style={styles.priceTotalValue}>Rs. {booking.totalPrice.toFixed(2)}</Text>
-              </View>
-              <View style={styles.paymentMethodRow}>
-                <MaterialCommunityIcons
-                  name={booking.paymentMethod === 'cash' ? 'cash' : 'cellphone'}
-                  size={16}
-                  color={Colors.textSecondary}
-                />
-                <Text style={styles.paymentMethodText}>
-                  {booking.paymentMethod === 'cash' ? 'Cash Payment' : 'UPI Payment'}
-                </Text>
-              </View>
-            </View>
+            </AnimatedCard>
 
             {(booking.status === 'pending' || booking.status === 'accepted') && (
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setCancelModalVisible(true)}
-              >
-                <Feather name="x-circle" size={18} color={Colors.danger} />
-                <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-              </TouchableOpacity>
+              <AnimatedCard delay={600}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setCancelModalVisible(true)}
+                >
+                  <Feather name="x-circle" size={18} color={Colors.danger} />
+                  <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+                </TouchableOpacity>
+              </AnimatedCard>
             )}
           </>
         )}
       </ScrollView>
 
-      <Modal
+      <CancelModal
         visible={cancelModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCancelModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: bottomInset + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cancel Booking</Text>
-              <TouchableOpacity onPress={() => setCancelModalVisible(false)}>
-                <Ionicons name="close" size={24} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSubtitle}>Please select a reason for cancellation</Text>
-            {CANCEL_REASONS.map((reason) => (
-              <TouchableOpacity
-                key={reason}
-                style={[
-                  styles.reasonOption,
-                  selectedReason === reason && styles.reasonOptionSelected,
-                ]}
-                onPress={() => setSelectedReason(reason)}
-              >
-                <View
-                  style={[
-                    styles.reasonRadio,
-                    selectedReason === reason && styles.reasonRadioSelected,
-                  ]}
-                >
-                  {selectedReason === reason && <View style={styles.reasonRadioDot} />}
-                </View>
-                <Text
-                  style={[
-                    styles.reasonText,
-                    selectedReason === reason && styles.reasonTextSelected,
-                  ]}
-                >
-                  {reason}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={[
-                styles.confirmCancelButton,
-                !selectedReason && styles.confirmCancelButtonDisabled,
-              ]}
-              onPress={handleCancel}
-              disabled={!selectedReason || cancelling}
-            >
-              {cancelling ? (
-                <ActivityIndicator color={Colors.surface} />
-              ) : (
-                <Text style={styles.confirmCancelText}>Confirm Cancellation</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setCancelModalVisible(false)}
+        onConfirm={handleCancel}
+        bottomInset={bottomInset}
+        cancelling={cancelling}
+      />
     </View>
   );
 }
@@ -426,10 +652,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    paddingBottom: 14,
   },
   backButton: {
     padding: 4,
@@ -437,7 +660,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 18,
-    color: Colors.text,
+    color: Colors.surface,
   },
   sosButton: {
     flexDirection: 'row',
@@ -513,6 +736,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
+    zIndex: 2,
   },
   stepCircleCompleted: {
     backgroundColor: Colors.success,
@@ -525,6 +749,14 @@ const styles = StyleSheet.create({
   stepCirclePending: {
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
+  },
+  glowRing: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primaryGlow,
+    zIndex: 1,
   },
   activeDot: {
     width: 10,
@@ -785,10 +1017,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.danger,
   },
-  modalOverlay: {
+  modalOverlayContainer: {
     flex: 1,
-    backgroundColor: Colors.overlay,
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.overlay,
   },
   modalContent: {
     backgroundColor: Colors.surface,

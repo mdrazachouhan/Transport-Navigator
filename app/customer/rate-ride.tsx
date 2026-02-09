@@ -3,25 +3,131 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Alert, A
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useBookings } from '@/contexts/BookingContext';
 
 const feedbackTags = ['Polite Driver', 'Safe Drive', 'On Time', 'Good Handling', 'Clean Vehicle', 'Careful with Goods'];
 
+const SPARKLE_COUNT = 5;
+const SPARKLE_POSITIONS = [
+  { x: -30, y: -25 },
+  { x: 28, y: -30 },
+  { x: 35, y: 15 },
+  { x: -35, y: 20 },
+  { x: 5, y: -40 },
+];
+
+function SparkleDotsGroup() {
+  const anims = useRef(SPARKLE_POSITIONS.map(() => ({
+    scale: new Animated.Value(0),
+    opacity: new Animated.Value(0),
+  }))).current;
+
+  useEffect(() => {
+    const animations = anims.map((a, i) =>
+      Animated.sequence([
+        Animated.delay(400 + i * 120),
+        Animated.parallel([
+          Animated.spring(a.scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+          Animated.timing(a.opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]),
+        Animated.delay(600),
+        Animated.parallel([
+          Animated.timing(a.scale, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(a.opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    Animated.stagger(80, animations).start();
+  }, []);
+
+  return (
+    <>
+      {SPARKLE_POSITIONS.map((pos, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.sparkleDot,
+            {
+              left: 36 + pos.x,
+              top: 36 + pos.y,
+              transform: [{ scale: anims[i].scale }],
+              opacity: anims[i].opacity,
+            },
+          ]}
+        />
+      ))}
+    </>
+  );
+}
+
+function CheckCircle() {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }).start();
+  }, []);
+  return (
+    <Animated.View style={[styles.checkCircleWrap, { transform: [{ scale: scaleAnim }] }]}>
+      <View style={styles.checkCircle}>
+        <Ionicons name="checkmark" size={40} color={Colors.surface} />
+      </View>
+      <SparkleDotsGroup />
+    </Animated.View>
+  );
+}
+
 function StarButton({ index, rating, onPress }: { index: number; rating: number; onPress: (n: number) => void }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const selected = index <= rating;
   function handlePress() {
     Animated.sequence([
-      Animated.spring(scale, { toValue: 1.3, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1.4, friction: 3, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
     onPress(index);
   }
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity onPress={handlePress}>
-        <Ionicons name={index <= rating ? 'star' : 'star-outline'} size={44} color={index <= rating ? Colors.warning : Colors.border} />
+        <View style={selected ? styles.starGlow : undefined}>
+          <Ionicons name={selected ? 'star' : 'star-outline'} size={44} color={selected ? '#F59E0B' : Colors.border} />
+        </View>
       </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function FeedbackTag({ tag, selected, onPress }: { tag: string; selected: boolean; onPress: () => void }) {
+  const bounceAnim = useRef(new Animated.Value(1)).current;
+  function handlePress() {
+    Animated.sequence([
+      Animated.spring(bounceAnim, { toValue: 1.15, friction: 3, useNativeDriver: true }),
+      Animated.spring(bounceAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+    onPress();
+  }
+  return (
+    <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
+      <TouchableOpacity style={[styles.tag, selected && styles.tagActive]} onPress={handlePress}>
+        <Text style={[styles.tagText, selected && styles.tagTextActive]}>{tag}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function StaggeredSection({ children, delay }: { children: React.ReactNode; delay: number }) {
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, delay, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 450, delay, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={{ transform: [{ translateY: slideAnim }], opacity: opacityAnim }}>
+      {children}
     </Animated.View>
   );
 }
@@ -35,13 +141,8 @@ export default function RateRideScreen() {
   const [comment, setComment] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const booking = getBookingById(params.bookingId || '');
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-  }, []);
 
   function toggleTag(tag: string) {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -67,16 +168,21 @@ export default function RateRideScreen() {
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top + webTop }]} contentContainerStyle={{ paddingBottom: insets.bottom + webBottom + 20 }} keyboardShouldPersistTaps="handled">
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <View style={styles.successHeader}>
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" size={40} color={Colors.surface} />
-          </View>
+      <StaggeredSection delay={0}>
+        <LinearGradient
+          colors={[Colors.success, '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.successHeader}
+        >
+          <CheckCircle />
           <Text style={styles.successTitle}>Trip Completed</Text>
           {booking && <Text style={styles.successAmount}>₹{booking.totalPrice}</Text>}
-        </View>
+        </LinearGradient>
+      </StaggeredSection>
 
-        {booking && (
+      {booking && (
+        <StaggeredSection delay={100}>
           <View style={styles.routeCard}>
             <View style={styles.routeRow}>
               <View style={[styles.dot, { backgroundColor: Colors.success }]} />
@@ -93,8 +199,10 @@ export default function RateRideScreen() {
               <Text style={styles.metaText}>{booking.vehicleType}</Text>
             </View>
           </View>
-        )}
+        </StaggeredSection>
+      )}
 
+      <StaggeredSection delay={200}>
         <View style={styles.ratingSection}>
           <Text style={styles.ratingTitle}>Rate your experience</Text>
           <View style={styles.starsRow}>
@@ -106,18 +214,25 @@ export default function RateRideScreen() {
             {rating === 0 ? 'Tap to rate' : rating <= 2 ? 'Could be better' : rating <= 4 ? 'Good experience' : 'Excellent'}
           </Text>
         </View>
+      </StaggeredSection>
 
+      <StaggeredSection delay={300}>
         <View style={styles.tagsSection}>
           <Text style={styles.tagsTitle}>Quick Feedback</Text>
           <View style={styles.tagsWrap}>
             {feedbackTags.map(tag => (
-              <TouchableOpacity key={tag} style={[styles.tag, selectedTags.includes(tag) && styles.tagActive]} onPress={() => toggleTag(tag)}>
-                <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextActive]}>{tag}</Text>
-              </TouchableOpacity>
+              <FeedbackTag
+                key={tag}
+                tag={tag}
+                selected={selectedTags.includes(tag)}
+                onPress={() => toggleTag(tag)}
+              />
             ))}
           </View>
         </View>
+      </StaggeredSection>
 
+      <StaggeredSection delay={400}>
         <View style={styles.commentSection}>
           <TextInput
             style={styles.commentInput}
@@ -129,24 +244,35 @@ export default function RateRideScreen() {
             numberOfLines={3}
           />
         </View>
+      </StaggeredSection>
 
+      <StaggeredSection delay={500}>
         <View style={styles.btnSection}>
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.submitText}>Submit Rating</Text>}
+          <TouchableOpacity onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitBtn}
+            >
+              {loading ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.submitText}>Submit Rating</Text>}
+            </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity style={styles.skipBtn} onPress={() => router.replace('/customer/home' as any)}>
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </StaggeredSection>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  successHeader: { alignItems: 'center', paddingVertical: 32, backgroundColor: Colors.success },
-  checkCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  successHeader: { alignItems: 'center', paddingVertical: 32 },
+  checkCircleWrap: { width: 72, height: 72, marginBottom: 12, position: 'relative' },
+  checkCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+  sparkleDot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
   successTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.surface },
   successAmount: { fontSize: 28, fontFamily: 'Inter_700Bold', color: Colors.surface, marginTop: 4 },
   routeCard: { marginHorizontal: 16, marginTop: -20, backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.cardBorder },
@@ -159,6 +285,7 @@ const styles = StyleSheet.create({
   ratingSection: { alignItems: 'center', paddingVertical: 28 },
   ratingTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 16 },
   starsRow: { flexDirection: 'row', gap: 12, marginBottom: 10 },
+  starGlow: { shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 4 },
   ratingLabel: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   tagsSection: { paddingHorizontal: 16, marginBottom: 20 },
   tagsTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 10 },
@@ -170,7 +297,7 @@ const styles = StyleSheet.create({
   commentSection: { paddingHorizontal: 16, marginBottom: 24 },
   commentInput: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.border, minHeight: 80, textAlignVertical: 'top' },
   btnSection: { paddingHorizontal: 16 },
-  submitBtn: { height: 52, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  submitBtn: { height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   submitText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.surface },
   skipBtn: { alignItems: 'center', paddingVertical: 10 },
   skipText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },

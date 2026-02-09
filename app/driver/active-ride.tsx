@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,278 @@ import {
   TextInput,
   ActivityIndicator,
   Linking,
+  Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
 
 const STEPS = ['Accepted', 'OTP Verification', 'In Transit', 'Completed'];
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const delay = index * 100;
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 400,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: opacityAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function AnimatedStepIndicator({ step, index, currentStep }: { step: string; index: number; currentStep: number }) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const lineAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (index <= currentStep) {
+      Animated.sequence([
+        Animated.delay(index * 150),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(1);
+    }
+
+    if (index < currentStep) {
+      Animated.timing(lineAnim, {
+        toValue: 1,
+        duration: 300,
+        delay: index * 150 + 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [currentStep]);
+
+  const lineColor = lineAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.border, Colors.primary],
+  });
+
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepIndicatorCol}>
+        <Animated.View
+          style={[
+            styles.stepCircle,
+            index <= currentStep ? styles.stepCircleActive : styles.stepCircleInactive,
+            { transform: [{ scale: index <= currentStep ? scaleAnim : 1 }] },
+          ]}
+        >
+          {index < currentStep ? (
+            <Ionicons name="checkmark" size={14} color={Colors.surface} />
+          ) : index === currentStep ? (
+            <View style={styles.stepCurrentDot} />
+          ) : null}
+        </Animated.View>
+        {index < STEPS.length - 1 && (
+          <Animated.View
+            style={[
+              styles.stepLine,
+              index < currentStep
+                ? { backgroundColor: lineColor }
+                : styles.stepLineInactive,
+            ]}
+          />
+        )}
+      </View>
+      <Text
+        style={[
+          styles.stepLabel,
+          index <= currentStep ? styles.stepLabelActive : styles.stepLabelInactive,
+        ]}
+      >
+        {step}
+      </Text>
+    </View>
+  );
+}
+
+function PulsingCallButton({ onPress }: { onPress: () => void }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <TouchableOpacity style={styles.callButton} onPress={onPress}>
+        <Ionicons name="call" size={20} color={Colors.surface} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function PulsingCompleteButton({ onPress, disabled, isLoading }: { onPress: () => void; disabled: boolean; isLoading: boolean }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!disabled) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.02,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [disabled]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.8}
+        style={[disabled && styles.buttonDisabled]}
+      >
+        <LinearGradient
+          colors={[Colors.success, '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.completeButton}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={Colors.surface} />
+          ) : (
+            <>
+              <Ionicons name="checkmark-done-circle" size={22} color={Colors.surface} />
+              <Text style={styles.completeButtonText}>Complete Delivery</Text>
+            </>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedOtpInput({ value, onChangeText }: { value: string; onChangeText: (text: string) => void }) {
+  const borderColorAnim = useRef(new Animated.Value(0)).current;
+
+  const handleFocus = () => {
+    Animated.timing(borderColorAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleBlur = () => {
+    Animated.timing(borderColorAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const borderColor = borderColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.cardBorder, Colors.primary],
+  });
+
+  return (
+    <Animated.View style={[styles.otpInputWrapper, { borderColor }]}>
+      <TextInput
+        style={styles.otpInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="number-pad"
+        maxLength={4}
+        placeholder="Enter OTP"
+        placeholderTextColor={Colors.textTertiary}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+      />
+    </Animated.View>
+  );
+}
+
+function CelebrationBanner() {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(scaleAnim, {
+        toValue: 1.1,
+        friction: 4,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.completedBanner, { transform: [{ scale: scaleAnim }] }]}>
+      <Ionicons name="checkmark-circle" size={32} color={Colors.success} />
+      <Text style={styles.completedText}>Delivery Completed</Text>
+    </Animated.View>
+  );
+}
 
 export default function DriverActiveRideScreen() {
   const router = useRouter();
@@ -107,13 +370,16 @@ export default function DriverActiveRideScreen() {
   if (!booking) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: topInset + 12 }]}>
+        <LinearGradient
+          colors={[Colors.navyDark, Colors.navy]}
+          style={[styles.header, { paddingTop: topInset + 12 }]}
+        >
           <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/driver/dashboard' as any)}>
             <Ionicons name="arrow-back" size={22} color={Colors.surface} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Active Ride</Text>
           <View style={styles.headerSpacer} />
-        </View>
+        </LinearGradient>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading ride details...</Text>
@@ -124,66 +390,37 @@ export default function DriverActiveRideScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topInset + 12 }]}>
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navy]}
+        style={[styles.header, { paddingTop: topInset + 12 }]}
+      >
         <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/driver/dashboard' as any)}>
           <Ionicons name="arrow-back" size={22} color={Colors.surface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Active Ride</Text>
         <View style={styles.headerSpacer} />
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.content}
         contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 20 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.progressCard}>
+        <AnimatedCard index={0} style={styles.progressCard}>
           <Text style={styles.progressTitle}>Ride Progress</Text>
           <View style={styles.stepsContainer}>
             {STEPS.map((step, index) => (
-              <View key={step} style={styles.stepRow}>
-                <View style={styles.stepIndicatorCol}>
-                  <View
-                    style={[
-                      styles.stepCircle,
-                      index <= currentStep
-                        ? styles.stepCircleActive
-                        : styles.stepCircleInactive,
-                    ]}
-                  >
-                    {index < currentStep ? (
-                      <Ionicons name="checkmark" size={14} color={Colors.surface} />
-                    ) : index === currentStep ? (
-                      <View style={styles.stepCurrentDot} />
-                    ) : null}
-                  </View>
-                  {index < STEPS.length - 1 && (
-                    <View
-                      style={[
-                        styles.stepLine,
-                        index < currentStep
-                          ? styles.stepLineActive
-                          : styles.stepLineInactive,
-                      ]}
-                    />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.stepLabel,
-                    index <= currentStep
-                      ? styles.stepLabelActive
-                      : styles.stepLabelInactive,
-                  ]}
-                >
-                  {step}
-                </Text>
-              </View>
+              <AnimatedStepIndicator
+                key={step}
+                step={step}
+                index={index}
+                currentStep={currentStep}
+              />
             ))}
           </View>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.locationsCard}>
+        <AnimatedCard index={1} style={styles.locationsCard}>
           <View style={styles.locationRow}>
             <View style={styles.locationDot}>
               <View style={[styles.dot, { backgroundColor: Colors.success }]} />
@@ -205,9 +442,9 @@ export default function DriverActiveRideScreen() {
               <Text style={styles.locationArea}>{booking.delivery.area}</Text>
             </View>
           </View>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.customerCard}>
+        <AnimatedCard index={2} style={styles.customerCard}>
           <Text style={styles.cardTitle}>Customer Details</Text>
           <View style={styles.customerRow}>
             <View style={styles.customerInfo}>
@@ -219,13 +456,11 @@ export default function DriverActiveRideScreen() {
                 <Text style={styles.customerPhone}>{booking.customerPhone}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.callButton} onPress={handleCallCustomer}>
-              <Ionicons name="call" size={20} color={Colors.surface} />
-            </TouchableOpacity>
+            <PulsingCallButton onPress={handleCallCustomer} />
           </View>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.priceCard}>
+        <AnimatedCard index={3} style={styles.priceCard}>
           <Text style={styles.cardTitle}>Fare Breakdown</Text>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Base Fare</Text>
@@ -250,62 +485,52 @@ export default function DriverActiveRideScreen() {
               {booking.paymentMethod === 'cash' ? 'Cash Payment' : 'UPI Payment'}
             </Text>
           </View>
-        </View>
+        </AnimatedCard>
 
         {booking.status === 'accepted' && (
-          <View style={styles.actionCard}>
+          <AnimatedCard index={4} style={styles.actionCard}>
             <Text style={styles.actionTitle}>Verify Customer OTP</Text>
             <Text style={styles.actionSubtitle}>
               Enter the 4-digit OTP provided by the customer
             </Text>
-            <TextInput
-              style={styles.otpInput}
-              value={otp}
-              onChangeText={setOtp}
-              keyboardType="number-pad"
-              maxLength={4}
-              placeholder="Enter OTP"
-              placeholderTextColor={Colors.textTertiary}
-            />
+            <AnimatedOtpInput value={otp} onChangeText={setOtp} />
             <TouchableOpacity
-              style={[styles.verifyButton, verifying && styles.buttonDisabled]}
               onPress={handleVerifyOtp}
               disabled={verifying}
+              activeOpacity={0.8}
+              style={[verifying && styles.buttonDisabled]}
             >
-              {verifying ? (
-                <ActivityIndicator size="small" color={Colors.surface} />
-              ) : (
-                <>
-                  <Ionicons name="shield-checkmark" size={20} color={Colors.surface} />
-                  <Text style={styles.verifyButtonText}>Verify OTP & Start Trip</Text>
-                </>
-              )}
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.verifyButton}
+              >
+                {verifying ? (
+                  <ActivityIndicator size="small" color={Colors.surface} />
+                ) : (
+                  <>
+                    <Ionicons name="shield-checkmark" size={20} color={Colors.surface} />
+                    <Text style={styles.verifyButtonText}>Verify OTP & Start Trip</Text>
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </AnimatedCard>
         )}
 
         {booking.status === 'in_progress' && (
-          <TouchableOpacity
-            style={[styles.completeButton, completing && styles.buttonDisabled]}
-            onPress={handleCompleteDelivery}
-            disabled={completing}
-          >
-            {completing ? (
-              <ActivityIndicator size="small" color={Colors.surface} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-done-circle" size={22} color={Colors.surface} />
-                <Text style={styles.completeButtonText}>Complete Delivery</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <AnimatedCard index={4}>
+            <PulsingCompleteButton
+              onPress={handleCompleteDelivery}
+              disabled={completing}
+              isLoading={completing}
+            />
+          </AnimatedCard>
         )}
 
         {booking.status === 'completed' && (
-          <View style={styles.completedBanner}>
-            <Ionicons name="checkmark-circle" size={32} color={Colors.success} />
-            <Text style={styles.completedText}>Delivery Completed</Text>
-          </View>
+          <CelebrationBanner />
         )}
       </ScrollView>
     </View>
@@ -318,13 +543,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: Colors.navyDark,
     paddingHorizontal: 20,
     paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    overflow: 'hidden',
   },
   backButton: {
     width: 40,
@@ -600,11 +825,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 16,
   },
-  otpInput: {
-    backgroundColor: Colors.background,
+  otpInputWrapper: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderWidth: 2,
+    marginBottom: 16,
+    backgroundColor: Colors.background,
+  },
+  otpInput: {
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 24,
@@ -612,10 +839,8 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textAlign: 'center',
     letterSpacing: 8,
-    marginBottom: 16,
   },
   verifyButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -632,7 +857,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   completeButton: {
-    backgroundColor: Colors.success,
     borderRadius: 16,
     paddingVertical: 16,
     flexDirection: 'row',
