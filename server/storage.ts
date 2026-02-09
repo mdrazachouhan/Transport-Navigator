@@ -1,4 +1,5 @@
-import * as crypto from 'crypto';
+import { UserModel, BookingModel, VehiclePricingModel, OtpRecordModel } from './models';
+import type { IUser, IBooking, IVehiclePricing } from './models';
 
 export interface User {
   id: string;
@@ -66,162 +67,253 @@ export interface OtpRecord {
   verified: boolean;
 }
 
-const defaultVehicles: VehiclePricing[] = [
-  { id: '1', type: 'auto', name: 'Auto', baseFare: 50, perKmCharge: 12, capacity: 'Up to 200kg', icon: 'rickshaw', isActive: true },
-  { id: '2', type: 'tempo', name: 'Tempo', baseFare: 150, perKmCharge: 18, capacity: 'Up to 1000kg', icon: 'van-utility', isActive: true },
-  { id: '3', type: 'truck', name: 'Truck', baseFare: 300, perKmCharge: 25, capacity: '1000kg+', icon: 'truck', isActive: true },
-];
+function docToUser(doc: IUser): User {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    phone: doc.phone,
+    role: doc.role,
+    password: doc.password,
+    vehicleType: doc.vehicleType,
+    vehicleNumber: doc.vehicleNumber,
+    licenseNumber: doc.licenseNumber,
+    isOnline: doc.isOnline,
+    isApproved: doc.isApproved,
+    rating: doc.rating,
+    totalTrips: doc.totalTrips,
+    totalEarnings: doc.totalEarnings,
+    location: doc.location,
+    createdAt: doc.createdAt?.toISOString?.() || new Date().toISOString(),
+  };
+}
 
-const defaultAdmin: User = {
-  id: 'admin-1',
-  name: 'Admin',
-  phone: '9999999999',
-  role: 'admin',
-  password: 'admin123',
-  createdAt: new Date().toISOString(),
-};
+function docToBooking(doc: IBooking): Booking {
+  return {
+    id: doc._id.toString(),
+    customerId: doc.customerId,
+    customerName: doc.customerName,
+    customerPhone: doc.customerPhone,
+    driverId: doc.driverId,
+    driverName: doc.driverName,
+    driverPhone: doc.driverPhone,
+    driverVehicleNumber: doc.driverVehicleNumber,
+    pickup: doc.pickup,
+    delivery: doc.delivery,
+    vehicleType: doc.vehicleType,
+    distance: doc.distance,
+    basePrice: doc.basePrice,
+    distanceCharge: doc.distanceCharge,
+    totalPrice: doc.totalPrice,
+    estimatedTime: doc.estimatedTime,
+    paymentMethod: doc.paymentMethod,
+    status: doc.status,
+    otp: doc.otp,
+    rating: doc.rating,
+    ratingComment: doc.ratingComment,
+    cancelReason: doc.cancelReason,
+    createdAt: doc.createdAt?.toISOString?.() || new Date().toISOString(),
+    acceptedAt: doc.acceptedAt?.toISOString?.(),
+    startedAt: doc.startedAt?.toISOString?.(),
+    completedAt: doc.completedAt?.toISOString?.(),
+    cancelledAt: doc.cancelledAt?.toISOString?.(),
+  };
+}
 
-class InMemoryStorage {
-  private users: Map<string, User> = new Map();
-  private bookings: Map<string, Booking> = new Map();
-  private vehicles: Map<string, VehiclePricing> = new Map();
-  private otps: Map<string, OtpRecord> = new Map();
+function docToVehicle(doc: any): VehiclePricing {
+  return {
+    id: doc._id.toString(),
+    type: doc.type,
+    name: doc.name,
+    baseFare: doc.baseFare,
+    perKmCharge: doc.perKmCharge,
+    capacity: doc.capacity,
+    icon: doc.icon,
+    isActive: doc.isActive,
+  };
+}
 
-  constructor() {
-    this.users.set(defaultAdmin.id, defaultAdmin);
-    defaultVehicles.forEach(v => this.vehicles.set(v.id, v));
+class MongoStorage {
+  async seedDefaults() {
+    const vehicleCount = await VehiclePricingModel.countDocuments();
+    if (vehicleCount === 0) {
+      await VehiclePricingModel.insertMany([
+        { type: 'auto', name: 'Auto', baseFare: 50, perKmCharge: 12, capacity: 'Up to 200kg', icon: 'rickshaw', isActive: true },
+        { type: 'tempo', name: 'Tempo', baseFare: 150, perKmCharge: 18, capacity: 'Up to 1000kg', icon: 'van-utility', isActive: true },
+        { type: 'truck', name: 'Truck', baseFare: 300, perKmCharge: 25, capacity: '1000kg+', icon: 'truck', isActive: true },
+      ]);
+      console.log('Seeded default vehicle pricing');
+    }
+
+    const adminExists = await UserModel.findOne({ phone: '9999999999', role: 'admin' });
+    if (!adminExists) {
+      await UserModel.create({
+        name: 'Admin',
+        phone: '9999999999',
+        role: 'admin',
+        password: 'admin123',
+      });
+      console.log('Seeded default admin user');
+    }
   }
 
-  generateId(): string {
-    return crypto.randomUUID();
+  async createUser(data: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+    const doc = await UserModel.create(data);
+    return docToUser(doc);
   }
 
-  createUser(data: Omit<User, 'id' | 'createdAt'>): User {
-    const user: User = { ...data, id: this.generateId(), createdAt: new Date().toISOString() };
-    this.users.set(user.id, user);
-    return user;
+  async getUserById(id: string): Promise<User | undefined> {
+    try {
+      const doc = await UserModel.findById(id);
+      return doc ? docToUser(doc) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
-  getUserById(id: string): User | undefined {
-    return this.users.get(id);
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    const doc = await UserModel.findOne({ phone });
+    return doc ? docToUser(doc) : undefined;
   }
 
-  getUserByPhone(phone: string): User | undefined {
-    return Array.from(this.users.values()).find(u => u.phone === phone);
+  async getUsersByRole(role: string): Promise<User[]> {
+    const docs = await UserModel.find({ role });
+    return docs.map(docToUser);
   }
 
-  getUsersByRole(role: string): User[] {
-    return Array.from(this.users.values()).filter(u => u.role === role);
+  async getAllUsers(): Promise<User[]> {
+    const docs = await UserModel.find();
+    return docs.map(docToUser);
   }
 
-  getAllUsers(): User[] {
-    return Array.from(this.users.values());
+  async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
+    try {
+      const doc = await UserModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+      return doc ? docToUser(doc) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
-  updateUser(id: string, data: Partial<User>): User | undefined {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    const updated = { ...user, ...data };
-    this.users.set(id, updated);
-    return updated;
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      const result = await UserModel.findByIdAndDelete(id);
+      return !!result;
+    } catch {
+      return false;
+    }
   }
 
-  deleteUser(id: string): boolean {
-    return this.users.delete(id);
+  async getOnlineDrivers(vehicleType?: string): Promise<User[]> {
+    const query: any = { role: 'driver', isOnline: true, isApproved: { $ne: false } };
+    if (vehicleType) query.vehicleType = vehicleType;
+    const docs = await UserModel.find(query);
+    return docs.map(docToUser);
   }
 
-  getOnlineDrivers(vehicleType?: string): User[] {
-    return Array.from(this.users.values()).filter(u =>
-      u.role === 'driver' && u.isOnline && u.isApproved !== false &&
-      (!vehicleType || u.vehicleType === vehicleType)
+  async createBooking(data: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking> {
+    const doc = await BookingModel.create(data);
+    return docToBooking(doc);
+  }
+
+  async getBookingById(id: string): Promise<Booking | undefined> {
+    try {
+      const doc = await BookingModel.findById(id);
+      return doc ? docToBooking(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async getBookingsByCustomer(customerId: string): Promise<Booking[]> {
+    const docs = await BookingModel.find({ customerId }).sort({ createdAt: -1 });
+    return docs.map(docToBooking);
+  }
+
+  async getBookingsByDriver(driverId: string): Promise<Booking[]> {
+    const docs = await BookingModel.find({ driverId }).sort({ createdAt: -1 });
+    return docs.map(docToBooking);
+  }
+
+  async getPendingBookings(vehicleType?: string): Promise<Booking[]> {
+    const query: any = { status: 'pending' };
+    if (vehicleType) query.vehicleType = vehicleType;
+    const docs = await BookingModel.find(query);
+    return docs.map(docToBooking);
+  }
+
+  async getAllBookings(): Promise<Booking[]> {
+    const docs = await BookingModel.find().sort({ createdAt: -1 });
+    return docs.map(docToBooking);
+  }
+
+  async updateBooking(id: string, data: Partial<Booking>): Promise<Booking | undefined> {
+    try {
+      const doc = await BookingModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+      return doc ? docToBooking(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async getVehicles(): Promise<VehiclePricing[]> {
+    const docs = await VehiclePricingModel.find();
+    return docs.map(docToVehicle);
+  }
+
+  async getVehicleByType(type: string): Promise<VehiclePricing | undefined> {
+    const doc = await VehiclePricingModel.findOne({ type });
+    return doc ? docToVehicle(doc) : undefined;
+  }
+
+  async updateVehicle(id: string, data: Partial<VehiclePricing>): Promise<VehiclePricing | undefined> {
+    try {
+      const doc = await VehiclePricingModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+      return doc ? docToVehicle(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async saveOtp(phone: string, otp: string): Promise<void> {
+    await OtpRecordModel.findOneAndUpdate(
+      { phone },
+      { phone, otp, expiresAt: new Date(Date.now() + 5 * 60 * 1000), verified: false },
+      { upsert: true, new: true }
     );
   }
 
-  createBooking(data: Omit<Booking, 'id' | 'createdAt'>): Booking {
-    const booking: Booking = { ...data, id: this.generateId(), createdAt: new Date().toISOString() };
-    this.bookings.set(booking.id, booking);
-    return booking;
-  }
-
-  getBookingById(id: string): Booking | undefined {
-    return this.bookings.get(id);
-  }
-
-  getBookingsByCustomer(customerId: string): Booking[] {
-    return Array.from(this.bookings.values())
-      .filter(b => b.customerId === customerId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  getBookingsByDriver(driverId: string): Booking[] {
-    return Array.from(this.bookings.values())
-      .filter(b => b.driverId === driverId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  getPendingBookings(vehicleType?: string): Booking[] {
-    return Array.from(this.bookings.values())
-      .filter(b => b.status === 'pending' && (!vehicleType || b.vehicleType === vehicleType));
-  }
-
-  getAllBookings(): Booking[] {
-    return Array.from(this.bookings.values())
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  updateBooking(id: string, data: Partial<Booking>): Booking | undefined {
-    const booking = this.bookings.get(id);
-    if (!booking) return undefined;
-    const updated = { ...booking, ...data };
-    this.bookings.set(id, updated);
-    return updated;
-  }
-
-  getVehicles(): VehiclePricing[] {
-    return Array.from(this.vehicles.values());
-  }
-
-  getVehicleByType(type: string): VehiclePricing | undefined {
-    return Array.from(this.vehicles.values()).find(v => v.type === type);
-  }
-
-  updateVehicle(id: string, data: Partial<VehiclePricing>): VehiclePricing | undefined {
-    const vehicle = this.vehicles.get(id);
-    if (!vehicle) return undefined;
-    const updated = { ...vehicle, ...data };
-    this.vehicles.set(id, updated);
-    return updated;
-  }
-
-  saveOtp(phone: string, otp: string): void {
-    this.otps.set(phone, { phone, otp, expiresAt: Date.now() + 5 * 60 * 1000, verified: false });
-  }
-
-  verifyOtp(phone: string, otp: string): boolean {
-    const record = this.otps.get(phone);
+  async verifyOtp(phone: string, otp: string): Promise<boolean> {
+    const record = await OtpRecordModel.findOne({ phone });
     if (!record) return false;
-    if (Date.now() > record.expiresAt) return false;
+    if (new Date() > record.expiresAt) return false;
     if (record.otp !== otp) return false;
     record.verified = true;
-    this.otps.set(phone, record);
+    await record.save();
     return true;
   }
 
-  getStats() {
-    const allBookings = this.getAllBookings();
-    const users = this.getAllUsers();
+  async getStats() {
+    const [totalUsers, totalCustomers, totalDrivers, onlineDrivers, allBookings] = await Promise.all([
+      UserModel.countDocuments({ role: { $ne: 'admin' } }),
+      UserModel.countDocuments({ role: 'customer' }),
+      UserModel.countDocuments({ role: 'driver' }),
+      UserModel.countDocuments({ role: 'driver', isOnline: true }),
+      BookingModel.find(),
+    ]);
+
+    const bookingsList = allBookings.map(docToBooking);
     return {
-      totalUsers: users.filter(u => u.role !== 'admin').length,
-      totalCustomers: users.filter(u => u.role === 'customer').length,
-      totalDrivers: users.filter(u => u.role === 'driver').length,
-      onlineDrivers: users.filter(u => u.role === 'driver' && u.isOnline).length,
-      totalBookings: allBookings.length,
-      completedBookings: allBookings.filter(b => b.status === 'completed').length,
-      activeBookings: allBookings.filter(b => ['pending', 'accepted', 'in_progress'].includes(b.status)).length,
-      cancelledBookings: allBookings.filter(b => b.status === 'cancelled').length,
-      totalRevenue: allBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.totalPrice, 0),
+      totalUsers,
+      totalCustomers,
+      totalDrivers,
+      onlineDrivers,
+      totalBookings: bookingsList.length,
+      completedBookings: bookingsList.filter(b => b.status === 'completed').length,
+      activeBookings: bookingsList.filter(b => ['pending', 'accepted', 'in_progress'].includes(b.status)).length,
+      cancelledBookings: bookingsList.filter(b => b.status === 'cancelled').length,
+      totalRevenue: bookingsList.filter(b => b.status === 'completed').reduce((s, b) => s + b.totalPrice, 0),
     };
   }
 }
 
-export const storage = new InMemoryStorage();
+export const storage = new MongoStorage();
