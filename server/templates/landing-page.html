@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="scroll-behavior:smooth">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -47,6 +47,48 @@ header{padding:20px 0;position:fixed;top:0;left:0;right:0;z-index:100;background
 .qr-placeholder span{font-size:12px;font-weight:600;opacity:0.5;text-align:center;padding:0 16px}
 footer{padding:32px 0;border-top:1px solid rgba(255,255,255,0.06);text-align:center}
 footer p{font-size:13px;color:rgba(255,255,255,0.4)}
+html{scroll-behavior:smooth}
+
+@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes glow-pulse{0%,100%{border-color:rgba(27,110,243,0.3);box-shadow:0 0 20px rgba(27,110,243,0.1)}50%{border-color:rgba(0,201,167,0.4);box-shadow:0 0 30px rgba(0,201,167,0.15)}}
+
+.hero-badge,.hero h1,.hero p,.cta-group{opacity:0;animation:fadeInUp 0.8s ease forwards}
+.hero-badge{animation-delay:0s}
+.hero h1{animation-delay:0.2s}
+.hero p{animation-delay:0.4s}
+.cta-group{animation-delay:0.6s}
+
+.hero{position:relative;overflow:hidden}
+.hero::before,.hero::after{content:'';position:absolute;border-radius:50%;background:rgba(27,110,243,0.15);pointer-events:none;animation:float 6s ease-in-out infinite}
+.hero::before{width:8px;height:8px;top:30%;left:15%;animation-duration:5s}
+.hero::after{width:6px;height:6px;top:50%;right:20%;animation-duration:7s;animation-delay:1s}
+.hero .container::before,.hero .container::after{content:'';position:absolute;border-radius:50%;pointer-events:none;animation:float ease-in-out infinite}
+.hero .container::before{width:5px;height:5px;background:rgba(0,201,167,0.2);top:25%;right:10%;animation-duration:8s;animation-delay:2s}
+.hero .container::after{width:10px;height:10px;background:rgba(139,92,246,0.12);bottom:20%;left:10%;animation-duration:6s;animation-delay:0.5s}
+.hero .container{position:relative}
+
+.feature-card,.section-title,.section-sub{opacity:0;transform:translateY(40px);transition:opacity 0.6s ease,transform 0.6s ease}
+.feature-card:nth-child(1){transition-delay:0s}
+.feature-card:nth-child(2){transition-delay:0.15s}
+.feature-card:nth-child(3){transition-delay:0.3s}
+.animate-in{opacity:1!important;transform:translateY(0)!important}
+
+.btn-primary{position:relative;overflow:hidden;background:linear-gradient(135deg,#1B6EF3,#0050D0);background-size:100% 100%}
+.btn-primary::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.2) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;pointer-events:none}
+
+header{transition:background 0.4s ease,box-shadow 0.4s ease}
+header.scrolled{background:rgba(10,22,40,0.98);box-shadow:0 4px 30px rgba(0,0,0,0.3);border-bottom-color:rgba(27,110,243,0.15)}
+
+.qr-card{animation:glow-pulse 4s ease-in-out infinite}
+
+.feature-card:hover{transform:translateY(-6px) scale(1.02)!important;border-color:rgba(0,201,167,0.4);box-shadow:0 8px 32px rgba(0,201,167,0.1)}
+.btn-primary:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 8px 36px rgba(27,110,243,0.5)}
+.btn-secondary:hover{background:rgba(255,255,255,0.14);transform:translateY(-2px) scale(1.02)}
+.admin-link:hover{transform:scale(1.05)}
+
 @media(max-width:768px){
 .hero h1{font-size:32px}
 .hero p{font-size:16px}
@@ -147,5 +189,14 @@ Open with Expo Go
 <p>APP_NAME_PLACEHOLDER - Fast &amp; reliable goods transport in Indore</p>
 </div>
 </footer>
+
+<script>
+(function(){
+var observer=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('animate-in')}})},{threshold:0.15,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.feature-card,.section-title,.section-sub,.qr-card,.qr-text').forEach(function(el){observer.observe(el)});
+var header=document.querySelector('header');
+window.addEventListener('scroll',function(){if(window.scrollY>50){header.classList.add('scrolled')}else{header.classList.remove('scrolled')}},{passive:true});
+})();
+</script>
 </body>
 </html>
