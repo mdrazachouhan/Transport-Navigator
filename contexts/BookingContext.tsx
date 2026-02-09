@@ -24,12 +24,17 @@ export interface Booking {
   otp?: string;
   createdAt: string;
   completedAt?: string;
+  rating?: number;
+  ratingComment?: string;
+  cancelReason?: string;
+  paymentMethod?: 'cash' | 'upi';
+  estimatedTime?: number;
 }
 
 interface BookingContextValue {
   bookings: Booking[];
   activeBooking: Booking | null;
-  createBooking: (customerId: string, customerName: string, customerPhone: string, pickup: Location, delivery: Location, vehicleType: string) => Promise<Booking>;
+  createBooking: (customerId: string, customerName: string, customerPhone: string, pickup: Location, delivery: Location, vehicleType: string, paymentMethod?: 'cash' | 'upi') => Promise<Booking>;
   acceptBooking: (bookingId: string, driverId: string, driverName: string, driverPhone: string, driverVehicleNumber: string) => Promise<void>;
   startTrip: (bookingId: string, otp: string) => Promise<{ success: boolean; error?: string }>;
   completeTrip: (bookingId: string) => Promise<void>;
@@ -38,6 +43,8 @@ interface BookingContextValue {
   getActiveCustomerBooking: (customerId: string) => Booking | null;
   getDriverRequests: (vehicleType: string) => Booking[];
   getActiveDriverBooking: (driverId: string) => Booking | null;
+  rateBooking: (bookingId: string, rating: number, comment?: string) => Promise<void>;
+  cancelBookingWithReason: (bookingId: string, reason: string) => Promise<void>;
   refreshBookings: () => Promise<void>;
 }
 
@@ -73,6 +80,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     pickup: Location,
     delivery: Location,
     vehicleType: string,
+    paymentMethod: 'cash' | 'upi' = 'cash',
   ) => {
     const distance = calculateDistance(
       { lat: pickup.lat, lng: pickup.lng },
@@ -95,6 +103,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       status: 'pending',
       otp,
       createdAt: new Date().toISOString(),
+      paymentMethod,
+      estimatedTime: Math.round(effectiveDistance * 3 + 5),
     };
     const raw = await AsyncStorage.getItem('bookings');
     const current: Booking[] = raw ? JSON.parse(raw) : [];
@@ -189,6 +199,34 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     [bookings],
   );
 
+  const rateBooking = useCallback(async (bookingId: string, rating: number, comment?: string) => {
+    const raw = await AsyncStorage.getItem('bookings');
+    const current: Booking[] = raw ? JSON.parse(raw) : [];
+    const idx = current.findIndex((b) => b.id === bookingId);
+    if (idx >= 0) {
+      current[idx] = {
+        ...current[idx],
+        rating,
+        ratingComment: comment,
+      };
+      await saveBookings(current);
+    }
+  }, []);
+
+  const cancelBookingWithReason = useCallback(async (bookingId: string, reason: string) => {
+    const raw = await AsyncStorage.getItem('bookings');
+    const current: Booking[] = raw ? JSON.parse(raw) : [];
+    const idx = current.findIndex((b) => b.id === bookingId);
+    if (idx >= 0) {
+      current[idx] = {
+        ...current[idx],
+        status: 'cancelled',
+        cancelReason: reason,
+      };
+      await saveBookings(current);
+    }
+  }, []);
+
   const refreshBookings = useCallback(async () => {
     await loadBookings();
   }, []);
@@ -206,9 +244,11 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       getActiveCustomerBooking,
       getDriverRequests,
       getActiveDriverBooking,
+      rateBooking,
+      cancelBookingWithReason,
       refreshBookings,
     }),
-    [bookings, createBooking, acceptBooking, startTrip, completeTrip, cancelBooking, getCustomerBookings, getActiveCustomerBooking, getDriverRequests, getActiveDriverBooking, refreshBookings],
+    [bookings, createBooking, acceptBooking, startTrip, completeTrip, cancelBooking, getCustomerBookings, getActiveCustomerBooking, getDriverRequests, getActiveDriverBooking, rateBooking, cancelBookingWithReason, refreshBookings],
   );
 
   return <BookingContext.Provider value={value}>{children}</BookingContext.Provider>;

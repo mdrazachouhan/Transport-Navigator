@@ -8,6 +8,7 @@ export default function CustomerLayout() {
       <Stack.Screen name="new-booking" />
       <Stack.Screen name="track-ride" />
       <Stack.Screen name="history" />
+      <Stack.Screen name="rate-ride" />
     </Stack>
   );
 }

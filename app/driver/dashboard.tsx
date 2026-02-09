@@ -1,14 +1,73 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, withSequence, withDelay } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
+import { MapView, Marker } from '@/components/MapWrapper';
+import { MOCK_LOCATIONS } from '@/lib/locations';
+
+const INDORE_REGION = {
+  latitude: 22.7196,
+  longitude: 75.8577,
+  latitudeDelta: 0.06,
+  longitudeDelta: 0.06,
+};
+
+const DEMAND_ZONES = [
+  { label: 'High Demand', area: 'Vijay Nagar', color: '#EF4444', bg: 'rgba(239,68,68,0.15)' },
+  { label: 'Medium', area: 'Palasia', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
+  { label: 'Low', area: 'Rajwada', color: '#10B981', bg: 'rgba(16,185,129,0.15)' },
+];
+
+const WEEKLY_EARNINGS = [
+  { day: 'Mon', amount: 320 },
+  { day: 'Tue', amount: 480 },
+  { day: 'Wed', amount: 210 },
+  { day: 'Thu', amount: 560 },
+  { day: 'Fri', amount: 390 },
+  { day: 'Sat', amount: 650 },
+  { day: 'Sun', amount: 440 },
+];
+
+const MAX_WEEKLY = Math.max(...WEEKLY_EARNINGS.map(e => e.amount));
+
+interface StatCardData {
+  value: string | React.ReactNode;
+  label: string;
+  index: number;
+}
+
+function AnimatedStatCard({ value, label, index }: StatCardData) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(20);
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 120, withTiming(1, { duration: 500 }));
+    translateY.value = withDelay(index * 120, withTiming(0, { duration: 500 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.statCard, animStyle]}>
+      {typeof value === 'string' ? (
+        <Text style={styles.statValue}>{value}</Text>
+      ) : (
+        value
+      )}
+      <Text style={styles.statLabel}>{label}</Text>
+    </Animated.View>
+  );
+}
 
 export default function DriverDashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -16,6 +75,7 @@ export default function DriverDashboardScreen() {
   const { getDriverRequests, getActiveDriverBooking, refreshBookings, bookings } = useBookings();
   const [isOnline, setIsOnline] = useState(user?.isOnline || false);
   const pulseScale = useSharedValue(1);
+  const toggleProgress = useSharedValue(isOnline ? 1 : 0);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,6 +107,14 @@ export default function DriverDashboardScreen() {
 
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulseScale.value }] }));
 
+  useEffect(() => {
+    toggleProgress.value = withTiming(isOnline ? 1 : 0, { duration: 350 });
+  }, [isOnline]);
+
+  const toggleAnimStyle = useAnimatedStyle(() => ({
+    opacity: 0.85 + toggleProgress.value * 0.15,
+  }));
+
   async function toggleOnline() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newStatus = !isOnline;
@@ -62,6 +130,21 @@ export default function DriverDashboardScreen() {
   }
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  const statCards: StatCardData[] = [
+    { value: `\u20B9${todayEarnings}`, label: "Today's Earnings", index: 0 },
+    { value: `${completedTrips.length}`, label: 'Total Trips', index: 1 },
+    {
+      value: (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Ionicons name="star" size={16} color={Colors.warning} />
+          <Text style={styles.statValue}>{user?.rating?.toFixed(1) || '4.5'}</Text>
+        </View>
+      ),
+      label: 'Rating',
+      index: 2,
+    },
+  ];
 
   return (
     <View style={styles.container}>
@@ -79,53 +162,98 @@ export default function DriverDashboardScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          onPress={toggleOnline}
-          style={({ pressed }) => [styles.onlineToggle, pressed && { opacity: 0.9 }]}
-        >
-          <LinearGradient
-            colors={isOnline ? [Colors.success, Colors.accentDark] : ['#6B7280', '#4B5563']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.onlineGradient}
+        <Animated.View style={toggleAnimStyle}>
+          <Pressable
+            onPress={toggleOnline}
+            style={({ pressed }) => [styles.onlineToggle, pressed && { opacity: 0.9 }]}
           >
-            <View style={styles.onlineIndicator}>
-              {isOnline && <View style={styles.onlineDot} />}
-              {!isOnline && <View style={styles.offlineDot} />}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.onlineTitle}>{isOnline ? 'Online' : 'Offline'}</Text>
-              <Text style={styles.onlineSubtitle}>
-                {isOnline ? 'Receiving ride requests' : 'Tap to go online'}
-              </Text>
-            </View>
-            <Ionicons name="power" size={24} color="#FFF" />
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={isOnline ? [Colors.success, Colors.accentDark] : ['#6B7280', '#4B5563']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.onlineGradient}
+            >
+              <View style={styles.onlineIndicator}>
+                {isOnline && <View style={styles.onlineDot} />}
+                {!isOnline && <View style={styles.offlineDot} />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.onlineTitle}>{isOnline ? 'Online' : 'Offline'}</Text>
+                <Text style={styles.onlineSubtitle}>
+                  {isOnline ? 'Receiving ride requests' : 'Tap to go online'}
+                </Text>
+              </View>
+              <Ionicons name="power" size={24} color="#FFF" />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
       </LinearGradient>
 
-      <View style={[styles.content, { paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 16) }]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 16) }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{'\u20B9'}{todayEarnings}</Text>
-            <Text style={styles.statLabel}>Today's Earnings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{completedTrips.length}</Text>
-            <Text style={styles.statLabel}>Total Trips</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="star" size={16} color={Colors.warning} />
-              <Text style={styles.statValue}>{user?.rating?.toFixed(1) || '4.5'}</Text>
-            </View>
-            <Text style={styles.statLabel}>Rating</Text>
+          {statCards.map((card) => (
+            <AnimatedStatCard key={card.index} value={card.value} label={card.label} index={card.index} />
+          ))}
+        </View>
+
+        <View style={styles.mapContainer}>
+          {Platform.OS !== 'web' ? (
+            <MapView
+              style={styles.mapView}
+              initialRegion={INDORE_REGION}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={false}
+            >
+              {MOCK_LOCATIONS.slice(0, 5).map((loc) => (
+                <Marker
+                  key={loc.id}
+                  coordinate={{ latitude: loc.lat, longitude: loc.lng }}
+                  title={loc.name}
+                />
+              ))}
+            </MapView>
+          ) : (
+            <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={styles.mapView}>
+              <MaterialCommunityIcons name="map-marker-radius-outline" size={48} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.mapText}>Indore, India</Text>
+            </LinearGradient>
+          )}
+
+          <View style={styles.demandOverlay}>
+            {DEMAND_ZONES.map((zone, i) => (
+              <View key={i} style={[styles.demandBadge, { backgroundColor: zone.bg, borderColor: zone.color }]}>
+                <View style={[styles.demandDot, { backgroundColor: zone.color }]} />
+                <Text style={[styles.demandLabel, { color: zone.color }]}>{zone.label}: {zone.area}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <View style={styles.mapPlaceholder}>
-          <MaterialCommunityIcons name="map-marker-radius-outline" size={48} color={Colors.textTertiary} />
-          <Text style={styles.mapText}>Indore, India</Text>
+        <View style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Weekly Earnings</Text>
+          <View style={styles.chartRow}>
+            {WEEKLY_EARNINGS.map((item, i) => {
+              const barHeight = (item.amount / MAX_WEEKLY) * 60;
+              return (
+                <View key={i} style={styles.chartBarWrapper}>
+                  <Text style={styles.chartAmount}>{'\u20B9'}{item.amount}</Text>
+                  <View style={styles.chartBarBg}>
+                    <LinearGradient
+                      colors={[Colors.primary, Colors.accent]}
+                      style={[styles.chartBar, { height: barHeight }]}
+                    />
+                  </View>
+                  <Text style={styles.chartDay}>{item.day}</Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         {isOnline && pendingRequests.length > 0 && (
@@ -197,7 +325,7 @@ export default function DriverDashboardScreen() {
             <Text style={styles.waitingSub}>Go online to start receiving requests</Text>
           </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -216,7 +344,7 @@ const styles = StyleSheet.create({
   offlineDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.4)' },
   onlineTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: '#FFF' },
   onlineSubtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20, gap: 14 },
+  content: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
     flex: 1, backgroundColor: Colors.surface, borderRadius: 14, padding: 14,
@@ -224,11 +352,33 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
   statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
-  mapPlaceholder: {
-    backgroundColor: Colors.surface, borderRadius: 16, padding: 30, alignItems: 'center',
-    justifyContent: 'center', borderWidth: 1, borderColor: Colors.cardBorder,
+  mapContainer: {
+    height: 160, borderRadius: 16, overflow: 'hidden', position: 'relative',
   },
-  mapText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textTertiary, marginTop: 8 },
+  mapView: {
+    flex: 1, borderRadius: 16, justifyContent: 'center', alignItems: 'center',
+  },
+  mapText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.6)', marginTop: 8 },
+  demandOverlay: {
+    position: 'absolute', top: 8, left: 8, right: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+  },
+  demandBadge: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 10, borderWidth: 1, gap: 4,
+  },
+  demandDot: { width: 6, height: 6, borderRadius: 3 },
+  demandLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  chartCard: {
+    backgroundColor: Colors.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  chartTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 12 },
+  chartRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  chartBarWrapper: { alignItems: 'center', flex: 1 },
+  chartAmount: { fontSize: 8, fontFamily: 'Inter_500Medium', color: Colors.textTertiary, marginBottom: 4 },
+  chartBarBg: { width: 16, height: 60, backgroundColor: Colors.borderLight, borderRadius: 8, justifyContent: 'flex-end', overflow: 'hidden' },
+  chartBar: { width: 16, borderRadius: 8 },
+  chartDay: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, marginTop: 4 },
   requestButton: { borderRadius: 16, overflow: 'hidden' },
   requestGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 18, gap: 14 },
   requestTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },

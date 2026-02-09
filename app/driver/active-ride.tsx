@@ -1,14 +1,37 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
+import { MapView, Marker } from '@/components/MapWrapper';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import { VEHICLE_PRICING } from '@/lib/pricing';
+
+function AnimatedCard({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(30);
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 100, withTiming(1, { duration: 400 }));
+    translateY.value = withDelay(index * 100, withTiming(0, { duration: 400 }));
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 export default function ActiveRideScreen() {
   const insets = useSafeAreaInsets();
@@ -50,6 +73,26 @@ export default function ActiveRideScreen() {
   const vehicle = VEHICLE_PRICING[booking.vehicleType];
   const isAccepted = booking.status === 'accepted';
   const isInProgress = booking.status === 'in_progress';
+  const etaMinutes = Math.round(booking.distance * 3 + 5);
+
+  const mapRegion = {
+    latitude: (booking.pickup.lat + booking.delivery.lat) / 2,
+    longitude: (booking.pickup.lng + booking.delivery.lng) / 2,
+    latitudeDelta: Math.abs(booking.pickup.lat - booking.delivery.lat) * 2 + 0.02,
+    longitudeDelta: Math.abs(booking.pickup.lng - booking.delivery.lng) * 2 + 0.02,
+  };
+
+  function handleOpenInMaps() {
+    const dest = isAccepted ? booking!.pickup : booking!.delivery;
+    Alert.alert(
+      'Open in Maps',
+      `Navigate to ${dest.name}?\nCoordinates: ${dest.lat.toFixed(4)}, ${dest.lng.toFixed(4)}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open', onPress: () => Alert.alert('Navigation', 'Map navigation would open here in a production app.') },
+      ],
+    );
+  }
 
   async function handleStartTrip() {
     if (otpInput.length !== 4) {
@@ -94,20 +137,38 @@ export default function ActiveRideScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={isInProgress ? [Colors.accent, Colors.accentDark] : [Colors.primary, '#4F46E5']}
-        style={[styles.statusHeader, { paddingTop: insets.top + webTopInset + 12 }]}
-      >
-        <View style={styles.statusHeaderRow}>
-          <Pressable onPress={() => router.back()} style={styles.statusBackBtn}>
+      <View style={[styles.mapContainer, { paddingTop: insets.top + webTopInset }]}>
+        {Platform.OS !== 'web' ? (
+          <MapView style={StyleSheet.absoluteFillObject} initialRegion={mapRegion}>
+            <Marker coordinate={{ latitude: booking.pickup.lat, longitude: booking.pickup.lng }} title={booking.pickup.name} pinColor="green" />
+            <Marker coordinate={{ latitude: booking.delivery.lat, longitude: booking.delivery.lng }} title={booking.delivery.name} pinColor="red" />
+          </MapView>
+        ) : (
+          <LinearGradient colors={isInProgress ? [Colors.accent, Colors.accentDark] : [Colors.primary, '#4F46E5']} style={StyleSheet.absoluteFillObject}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="map-marker-path" size={56} color="rgba(255,255,255,0.2)" />
+            </View>
+          </LinearGradient>
+        )}
+        <View style={[styles.mapOverlayHeader, { top: insets.top + webTopInset + 8 }]}>
+          <Pressable onPress={() => router.back()} style={styles.mapBackBtn}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </Pressable>
-          <Text style={styles.statusHeaderTitle}>
-            {isAccepted ? 'Navigate to Pickup' : 'Trip in Progress'}
-          </Text>
-          <View style={{ width: 44 }} />
+          <View style={[styles.statusChip, { backgroundColor: isInProgress ? '#D1FAE5' : Colors.primaryLight }]}>
+            <Text style={[styles.statusChipText, { color: isInProgress ? Colors.accent : Colors.primary }]}>
+              {isAccepted ? 'Navigate to Pickup' : 'Trip in Progress'}
+            </Text>
+          </View>
         </View>
-      </LinearGradient>
+        <View style={styles.etaBadge}>
+          <Ionicons name="time-outline" size={14} color="#FFF" />
+          <Text style={styles.etaText}>~{etaMinutes} min away</Text>
+        </View>
+        <Pressable onPress={handleOpenInMaps} style={styles.navButton}>
+          <Ionicons name="navigate" size={18} color="#FFF" />
+          <Text style={styles.navButtonText}>Open in Maps</Text>
+        </Pressable>
+      </View>
 
       <ScrollView
         style={{ flex: 1 }}
@@ -117,7 +178,7 @@ export default function ActiveRideScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.customerCard}>
+        <AnimatedCard index={0} style={styles.customerCard}>
           <View style={styles.customerAvatar}>
             <Ionicons name="person" size={24} color={Colors.primary} />
           </View>
@@ -128,9 +189,9 @@ export default function ActiveRideScreen() {
           <View style={styles.callBtn}>
             <Ionicons name="call" size={20} color={Colors.success} />
           </View>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.targetCard}>
+        <AnimatedCard index={1} style={styles.targetCard}>
           <View style={styles.targetHeader}>
             <Ionicons name="flag" size={18} color={isAccepted ? Colors.success : Colors.danger} />
             <Text style={styles.targetLabel}>
@@ -143,9 +204,9 @@ export default function ActiveRideScreen() {
           <Text style={styles.targetArea}>
             {isAccepted ? booking.pickup.area : booking.delivery.area}
           </Text>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.tripDetailsCard}>
+        <AnimatedCard index={2} style={styles.tripDetailsCard}>
           <Text style={styles.tripDetailsTitle}>Trip Details</Text>
           <View style={styles.tripDetailRow}>
             <View style={styles.tripDetailItem}>
@@ -160,9 +221,9 @@ export default function ActiveRideScreen() {
               <Text style={styles.tripPrice}>{'\u20B9'}{booking.totalPrice}</Text>
             </View>
           </View>
-        </View>
+        </AnimatedCard>
 
-        <View style={styles.routeCard}>
+        <AnimatedCard index={3} style={styles.routeCard}>
           <View style={styles.routeRow}>
             <View style={[styles.routeDot, { backgroundColor: Colors.success }]} />
             <View style={{ flex: 1 }}>
@@ -178,10 +239,10 @@ export default function ActiveRideScreen() {
               <Text style={styles.routeText}>{booking.delivery.name}</Text>
             </View>
           </View>
-        </View>
+        </AnimatedCard>
 
         {isAccepted && (
-          <View style={styles.otpSection}>
+          <AnimatedCard index={4} style={styles.otpSection}>
             <Text style={styles.otpTitle}>Enter Customer OTP</Text>
             <Text style={styles.otpSubtitle}>Ask the customer for their 4-digit OTP to start the trip</Text>
             <TextInput
@@ -195,7 +256,7 @@ export default function ActiveRideScreen() {
               textAlign="center"
             />
             {!!otpError && <Text style={styles.otpErrorText}>{otpError}</Text>}
-          </View>
+          </AnimatedCard>
         )}
       </ScrollView>
 
@@ -239,10 +300,33 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   emptyTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-  statusHeader: { paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  statusHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statusBackBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  statusHeaderTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  mapContainer: { height: 240, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' },
+  mapOverlayHeader: {
+    position: 'absolute', left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  mapBackBtn: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  statusChip: {
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+  },
+  statusChipText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  etaBadge: {
+    position: 'absolute', bottom: 44, left: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 16,
+  },
+  etaText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  navButton: {
+    position: 'absolute', bottom: 44, right: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20,
+  },
+  navButtonText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
   scrollContent: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
   customerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
