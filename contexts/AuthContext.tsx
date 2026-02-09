@@ -62,14 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const baseUrl = getApiUrl();
       const url = new URL(path, baseUrl);
+      console.log(`[API] ${path} -> ${url.toString()}`);
       const res = await fetch(url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body),
       });
-      return await res.json();
+      const data = await res.json();
+      console.log(`[API] ${path} response:`, JSON.stringify(data).substring(0, 200));
+      return data;
     } catch (e: any) {
-      return { success: false, error: e.message || 'Network error' };
+      console.error(`[API] ${path} error:`, e.message);
+      return { success: false, error: 'Connection failed. Please check your internet and try again.' };
     }
   }
 

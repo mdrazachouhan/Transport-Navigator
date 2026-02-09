@@ -69,9 +69,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/auth/verify-otp', (req, res) => {
     const { phone, otp, role } = req.body;
+    console.log(`[VERIFY] ${phone}: attempting OTP ${otp}`);
     if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
     const valid = storage.verifyOtp(phone, otp);
-    if (!valid) return res.status(400).json({ error: 'Invalid or expired OTP' });
+    if (!valid) {
+      console.log(`[VERIFY] ${phone}: OTP verification failed`);
+      return res.status(400).json({ error: 'Invalid or expired OTP. Please tap "Resend OTP" and try again.' });
+    }
+    console.log(`[VERIFY] ${phone}: OTP verified successfully`);
     let user = storage.getUserByPhone(phone);
     const isNew = !user;
     if (!user) {
