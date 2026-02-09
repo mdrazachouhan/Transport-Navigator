@@ -167,10 +167,28 @@ function configureExpoAndLanding(app: express.Application) {
     "templates",
     "landing-page.html",
   );
+  const adminTemplatePath = path.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "admin-panel.html",
+  );
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
   const appName = getAppName();
 
   log("Serving static Expo files with dynamic manifest routing");
+
+  app.get("/admin", (req: Request, res: Response) => {
+    const forwardedProto = req.header("x-forwarded-proto");
+    const protocol = forwardedProto || req.protocol || "https";
+    const forwardedHost = req.header("x-forwarded-host");
+    const host = forwardedHost || req.get("host");
+    const baseUrl = `${protocol}://${host}`;
+    const html = adminTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(html);
+  });
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {

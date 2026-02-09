@@ -140,7 +140,7 @@ export default function CustomerHomeScreen() {
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.headerButton}
-              onPress={() => router.push('/customer/bookings' as any)}
+              onPress={() => router.push('/customer/history' as any)}
             >
               <Ionicons name="time-outline" size={22} color={Colors.surface} />
             </TouchableOpacity>
