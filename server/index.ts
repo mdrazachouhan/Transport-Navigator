@@ -1,6 +1,8 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { registerRoutes } from "./routes";
+import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -40,7 +42,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 
@@ -244,6 +246,21 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  const mongoUri = process.env.MONGODB_URI;
+  if (!mongoUri) {
+    console.error("MONGODB_URI environment variable is required");
+    process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(mongoUri, { dbName: 'transportgo' });
+    log("Connected to MongoDB Atlas");
+    await storage.seedDefaults();
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  }
+
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
