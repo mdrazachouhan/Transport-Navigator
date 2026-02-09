@@ -1,11 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Location } from '@/lib/locations';
-import { calculatePrice, calculateDistance, generateOTP } from '@/lib/pricing';
+import React, { createContext, useContext, useState, useMemo, useCallback, ReactNode } from 'react';
+import { getApiUrl } from '@/lib/query-client';
+import { useAuth } from '@/contexts/AuthContext';
 
-export type BookingStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-
-export interface Booking {
+export interface BookingData {
   id: string;
   customerId: string;
   customerName: string;
@@ -14,250 +11,147 @@ export interface Booking {
   driverName?: string;
   driverPhone?: string;
   driverVehicleNumber?: string;
-  pickup: Location;
-  delivery: Location;
+  pickup: { name: string; area: string; lat: number; lng: number };
+  delivery: { name: string; area: string; lat: number; lng: number };
   vehicleType: string;
   distance: number;
   basePrice: number;
+  distanceCharge: number;
   totalPrice: number;
-  status: BookingStatus;
-  otp?: string;
-  createdAt: string;
-  completedAt?: string;
+  estimatedTime: number;
+  paymentMethod: 'cash' | 'upi';
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  otp: string;
   rating?: number;
   ratingComment?: string;
   cancelReason?: string;
-  paymentMethod?: 'cash' | 'upi';
-  estimatedTime?: number;
+  createdAt: string;
+  acceptedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 interface BookingContextValue {
-  bookings: Booking[];
-  activeBooking: Booking | null;
-  createBooking: (customerId: string, customerName: string, customerPhone: string, pickup: Location, delivery: Location, vehicleType: string, paymentMethod?: 'cash' | 'upi') => Promise<Booking>;
-  acceptBooking: (bookingId: string, driverId: string, driverName: string, driverPhone: string, driverVehicleNumber: string) => Promise<void>;
+  bookings: BookingData[];
+  loading: boolean;
+  fetchBookings: () => Promise<void>;
+  fetchPendingBookings: () => Promise<BookingData[]>;
+  createBooking: (data: { pickup: any; delivery: any; vehicleType: string; paymentMethod?: string }) => Promise<{ success: boolean; booking?: BookingData; error?: string }>;
+  acceptBooking: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
   startTrip: (bookingId: string, otp: string) => Promise<{ success: boolean; error?: string }>;
-  completeTrip: (bookingId: string) => Promise<void>;
-  cancelBooking: (bookingId: string) => Promise<void>;
-  getCustomerBookings: (customerId: string) => Booking[];
-  getActiveCustomerBooking: (customerId: string) => Booking | null;
-  getDriverRequests: (vehicleType: string) => Booking[];
-  getActiveDriverBooking: (driverId: string) => Booking | null;
-  rateBooking: (bookingId: string, rating: number, comment?: string) => Promise<void>;
-  cancelBookingWithReason: (bookingId: string, reason: string) => Promise<void>;
-  refreshBookings: () => Promise<void>;
+  completeTrip: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
+  cancelBooking: (bookingId: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  rateBooking: (bookingId: string, rating: number, comment?: string) => Promise<{ success: boolean; error?: string }>;
+  getBookingById: (id: string) => BookingData | undefined;
+  getActiveBooking: () => BookingData | undefined;
 }
 
 const BookingContext = createContext<BookingContextValue | null>(null);
 
 export function BookingProvider({ children }: { children: ReactNode }) {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const { token } = useAuth();
+  const [bookings, setBookings] = useState<BookingData[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadBookings();
-  }, []);
-
-  async function loadBookings() {
+  const apiCall = useCallback(async (path: string, method: string = 'GET', body?: any) => {
     try {
-      const raw = await AsyncStorage.getItem('bookings');
-      if (raw) {
-        setBookings(JSON.parse(raw));
-      }
-    } catch (e) {
-      console.error('Load bookings error:', e);
+      const baseUrl = getApiUrl();
+      const url = new URL(path, baseUrl);
+      const headers: any = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      if (body) headers['Content-Type'] = 'application/json';
+      const res = await fetch(url.toString(), {
+        method, headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { error: e.message || 'Network error' };
     }
-  }
+  }, [token]);
 
-  async function saveBookings(updated: Booking[]) {
-    setBookings(updated);
-    await AsyncStorage.setItem('bookings', JSON.stringify(updated));
-  }
+  const fetchBookings = useCallback(async () => {
+    setLoading(true);
+    const data = await apiCall('/api/bookings');
+    if (data.bookings) setBookings(data.bookings);
+    setLoading(false);
+  }, [apiCall]);
 
-  const createBooking = useCallback(async (
-    customerId: string,
-    customerName: string,
-    customerPhone: string,
-    pickup: Location,
-    delivery: Location,
-    vehicleType: string,
-    paymentMethod: 'cash' | 'upi' = 'cash',
-  ) => {
-    const distance = calculateDistance(
-      { lat: pickup.lat, lng: pickup.lng },
-      { lat: delivery.lat, lng: delivery.lng },
-    );
-    const effectiveDistance = Math.max(distance, 2.5);
-    const price = calculatePrice(vehicleType, effectiveDistance);
-    const otp = generateOTP();
-    const booking: Booking = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      customerId,
-      customerName,
-      customerPhone,
-      pickup,
-      delivery,
-      vehicleType,
-      distance: effectiveDistance,
-      basePrice: price.basePrice,
-      totalPrice: price.totalPrice,
-      status: 'pending',
-      otp,
-      createdAt: new Date().toISOString(),
-      paymentMethod,
-      estimatedTime: Math.round(effectiveDistance * 3 + 5),
-    };
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    current.push(booking);
-    await saveBookings(current);
-    return booking;
-  }, []);
+  const fetchPendingBookings = useCallback(async () => {
+    const data = await apiCall('/api/bookings/pending');
+    return data.bookings || [];
+  }, [apiCall]);
 
-  const acceptBooking = useCallback(async (
-    bookingId: string,
-    driverId: string,
-    driverName: string,
-    driverPhone: string,
-    driverVehicleNumber: string,
-  ) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx >= 0) {
-      current[idx] = {
-        ...current[idx],
-        driverId,
-        driverName,
-        driverPhone,
-        driverVehicleNumber,
-        status: 'accepted',
-      };
-      await saveBookings(current);
+  const createBooking = useCallback(async (params: { pickup: any; delivery: any; vehicleType: string; paymentMethod?: string }) => {
+    const data = await apiCall('/api/bookings', 'POST', params);
+    if (data.booking) {
+      setBookings(prev => [data.booking, ...prev]);
+      return { success: true, booking: data.booking };
     }
-  }, []);
+    return { success: false, error: data.error };
+  }, [apiCall]);
+
+  const acceptBooking = useCallback(async (bookingId: string) => {
+    const data = await apiCall(`/api/bookings/${bookingId}/accept`, 'PUT');
+    if (data.booking) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      return { success: true };
+    }
+    return { success: false, error: data.error };
+  }, [apiCall]);
 
   const startTrip = useCallback(async (bookingId: string, otp: string) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx < 0) return { success: false, error: 'Booking not found' };
-    if (current[idx].otp !== otp) {
-      return { success: false, error: 'Invalid OTP' };
+    const data = await apiCall(`/api/bookings/${bookingId}/start`, 'PUT', { otp });
+    if (data.booking) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      return { success: true };
     }
-    current[idx] = { ...current[idx], status: 'in_progress' };
-    await saveBookings(current);
-    return { success: true };
-  }, []);
+    return { success: false, error: data.error };
+  }, [apiCall]);
 
   const completeTrip = useCallback(async (bookingId: string) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx >= 0) {
-      current[idx] = {
-        ...current[idx],
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-      };
-      await saveBookings(current);
+    const data = await apiCall(`/api/bookings/${bookingId}/complete`, 'PUT');
+    if (data.booking) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      return { success: true };
     }
-  }, []);
+    return { success: false, error: data.error };
+  }, [apiCall]);
 
-  const cancelBooking = useCallback(async (bookingId: string) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx >= 0) {
-      current[idx] = { ...current[idx], status: 'cancelled' };
-      await saveBookings(current);
+  const cancelBooking = useCallback(async (bookingId: string, reason?: string) => {
+    const data = await apiCall(`/api/bookings/${bookingId}/cancel`, 'PUT', { reason });
+    if (data.booking) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      return { success: true };
     }
-  }, []);
-
-  const getCustomerBookings = useCallback(
-    (customerId: string) => bookings.filter((b) => b.customerId === customerId),
-    [bookings],
-  );
-
-  const getActiveCustomerBooking = useCallback(
-    (customerId: string) =>
-      bookings.find(
-        (b) => b.customerId === customerId && ['pending', 'accepted', 'in_progress'].includes(b.status),
-      ) || null,
-    [bookings],
-  );
-
-  const getDriverRequests = useCallback(
-    (vehicleType: string) => bookings.filter((b) => b.status === 'pending' && b.vehicleType === vehicleType),
-    [bookings],
-  );
-
-  const getActiveDriverBooking = useCallback(
-    (driverId: string) =>
-      bookings.find(
-        (b) => b.driverId === driverId && ['accepted', 'in_progress'].includes(b.status),
-      ) || null,
-    [bookings],
-  );
+    return { success: false, error: data.error };
+  }, [apiCall]);
 
   const rateBooking = useCallback(async (bookingId: string, rating: number, comment?: string) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx >= 0) {
-      current[idx] = {
-        ...current[idx],
-        rating,
-        ratingComment: comment,
-      };
-      await saveBookings(current);
+    const data = await apiCall(`/api/bookings/${bookingId}/rate`, 'PUT', { rating, comment });
+    if (data.booking) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      return { success: true };
     }
-  }, []);
+    return { success: false, error: data.error };
+  }, [apiCall]);
 
-  const cancelBookingWithReason = useCallback(async (bookingId: string, reason: string) => {
-    const raw = await AsyncStorage.getItem('bookings');
-    const current: Booking[] = raw ? JSON.parse(raw) : [];
-    const idx = current.findIndex((b) => b.id === bookingId);
-    if (idx >= 0) {
-      current[idx] = {
-        ...current[idx],
-        status: 'cancelled',
-        cancelReason: reason,
-      };
-      await saveBookings(current);
-    }
-  }, []);
+  const getBookingById = useCallback((id: string) => bookings.find(b => b.id === id), [bookings]);
 
-  const refreshBookings = useCallback(async () => {
-    await loadBookings();
-  }, []);
+  const getActiveBooking = useCallback(() =>
+    bookings.find(b => ['pending', 'accepted', 'in_progress'].includes(b.status)),
+  [bookings]);
 
-  const value = useMemo(
-    () => ({
-      bookings,
-      activeBooking: null,
-      createBooking,
-      acceptBooking,
-      startTrip,
-      completeTrip,
-      cancelBooking,
-      getCustomerBookings,
-      getActiveCustomerBooking,
-      getDriverRequests,
-      getActiveDriverBooking,
-      rateBooking,
-      cancelBookingWithReason,
-      refreshBookings,
-    }),
-    [bookings, createBooking, acceptBooking, startTrip, completeTrip, cancelBooking, getCustomerBookings, getActiveCustomerBooking, getDriverRequests, getActiveDriverBooking, rateBooking, cancelBookingWithReason, refreshBookings],
-  );
+  const value = useMemo(() => ({
+    bookings, loading, fetchBookings, fetchPendingBookings, createBooking,
+    acceptBooking, startTrip, completeTrip, cancelBooking, rateBooking,
+    getBookingById, getActiveBooking,
+  }), [bookings, loading, fetchBookings, fetchPendingBookings, createBooking, acceptBooking, startTrip, completeTrip, cancelBooking, rateBooking, getBookingById, getActiveBooking]);
 
   return <BookingContext.Provider value={value}>{children}</BookingContext.Provider>;
 }
 
 export function useBookings() {
-  const context = useContext(BookingContext);
-  if (!context) {
-    throw new Error('useBookings must be used within a BookingProvider');
-  }
-  return context;
+  const ctx = useContext(BookingContext);
+  if (!ctx) throw new Error('useBookings must be used within BookingProvider');
+  return ctx;
 }

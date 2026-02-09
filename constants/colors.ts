@@ -12,7 +12,6 @@ const Colors = {
   dangerLight: '#FEE2E2',
   background: '#F5F7FA',
   surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
   card: '#FFFFFF',
   cardBorder: '#E8ECF2',
   text: '#1A1D26',

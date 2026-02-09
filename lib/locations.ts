@@ -18,3 +18,10 @@ export const MOCK_LOCATIONS: Location[] = [
   { id: '9', name: 'IIM Indore', lat: 22.6750, lng: 75.8475, area: 'Rau-Pithampur Road' },
   { id: '10', name: 'Devi Ahilya University', lat: 22.7196, lng: 75.8640, area: 'Takshashila Campus' },
 ];
+
+export const INDORE_REGION = {
+  latitude: 22.7196,
+  longitude: 75.8577,
+  latitudeDelta: 0.06,
+  longitudeDelta: 0.06,
+};

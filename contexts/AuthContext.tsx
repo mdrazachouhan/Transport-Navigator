@@ -1,173 +1,148 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '@/lib/query-client';
 
 export interface UserData {
   id: string;
   name: string;
   phone: string;
-  email: string;
-  password: string;
-  role: 'customer' | 'driver';
+  role: 'customer' | 'driver' | 'admin';
   vehicleType?: string;
   vehicleNumber?: string;
   licenseNumber?: string;
   isOnline?: boolean;
+  isApproved?: boolean;
   rating?: number;
   totalTrips?: number;
   totalEarnings?: number;
+  location?: { lat: number; lng: number };
+  createdAt?: string;
 }
-
-const DEMO_USERS: UserData[] = [
-  {
-    id: '1',
-    name: 'Rahul Kumar',
-    phone: '9876543210',
-    email: 'customer@demo.com',
-    password: 'password',
-    role: 'customer',
-  },
-  {
-    id: '2',
-    name: 'Vijay Singh',
-    phone: '9876543211',
-    email: 'driver@demo.com',
-    password: 'password',
-    role: 'driver',
-    vehicleType: 'auto',
-    vehicleNumber: 'MP 09 AB 1234',
-    licenseNumber: 'DL1234567890',
-    isOnline: false,
-    rating: 4.5,
-    totalTrips: 0,
-    totalEarnings: 0,
-  },
-];
 
 interface AuthContextValue {
   user: UserData | null;
+  token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (phone: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
-  register: (userData: Partial<UserData>) => Promise<{ success: boolean; error?: string }>;
+  sendOtp: (phone: string) => Promise<{ success: boolean; otp?: string; error?: string }>;
+  verifyOtp: (phone: string, otp: string, role: string) => Promise<{ success: boolean; isNew?: boolean; error?: string }>;
+  register: (data: { phone: string; name: string; role: string; vehicleType?: string; vehicleNumber?: string; licenseNumber?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  updateUser: (updates: Partial<UserData>) => Promise<void>;
+  updateUser: (updates: Partial<UserData>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    initializeAuth();
+    loadSession();
   }, []);
 
-  async function initializeAuth() {
+  async function loadSession() {
     try {
-      const existingUsers = await AsyncStorage.getItem('users');
-      if (!existingUsers) {
-        await AsyncStorage.setItem('users', JSON.stringify(DEMO_USERS));
-      }
-      const currentUser = await AsyncStorage.getItem('currentUser');
-      if (currentUser) {
-        setUser(JSON.parse(currentUser));
+      const savedToken = await AsyncStorage.getItem('auth_token');
+      const savedUser = await AsyncStorage.getItem('auth_user');
+      if (savedToken && savedUser) {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
       }
     } catch (e) {
-      console.error('Auth init error:', e);
+      console.error('Failed to load session:', e);
     } finally {
       setLoading(false);
     }
   }
 
-  async function login(phone: string, password: string, role: string) {
+  async function apiCall(path: string, body: any) {
     try {
-      const usersRaw = await AsyncStorage.getItem('users');
-      const users: UserData[] = usersRaw ? JSON.parse(usersRaw) : [];
-      const found = users.find((u) => u.phone === phone && u.password === password && u.role === role);
-      if (!found) {
-        return { success: false, error: 'Invalid credentials or role mismatch' };
-      }
-      await AsyncStorage.setItem('currentUser', JSON.stringify(found));
-      setUser(found);
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: 'Login failed' };
+      const baseUrl = getApiUrl();
+      const url = new URL(path, baseUrl);
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Network error' };
     }
   }
 
-  async function register(userData: Partial<UserData>) {
-    try {
-      const usersRaw = await AsyncStorage.getItem('users');
-      const users: UserData[] = usersRaw ? JSON.parse(usersRaw) : [];
-      const exists = users.find((u) => u.phone === userData.phone);
-      if (exists) {
-        return { success: false, error: 'Phone number already registered' };
-      }
-      const newUser: UserData = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name: userData.name || '',
-        phone: userData.phone || '',
-        email: userData.email || '',
-        password: userData.password || '',
-        role: userData.role || 'customer',
-        vehicleType: userData.vehicleType,
-        vehicleNumber: userData.vehicleNumber,
-        licenseNumber: userData.licenseNumber,
-        isOnline: false,
-        rating: userData.role === 'driver' ? 4.0 : undefined,
-        totalTrips: 0,
-        totalEarnings: 0,
-      };
-      users.push(newUser);
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-      await AsyncStorage.setItem('currentUser', JSON.stringify(newUser));
-      setUser(newUser);
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: 'Registration failed' };
+  async function sendOtp(phone: string) {
+    const result = await apiCall('/api/auth/send-otp', { phone });
+    if (result.success) return { success: true, otp: result.otp };
+    return { success: false, error: result.error };
+  }
+
+  async function verifyOtp(phone: string, otp: string, role: string) {
+    const result = await apiCall('/api/auth/verify-otp', { phone, otp, role });
+    if (result.success) {
+      await AsyncStorage.setItem('auth_token', result.token);
+      await AsyncStorage.setItem('auth_user', JSON.stringify(result.user));
+      setToken(result.token);
+      setUser(result.user);
+      return { success: true, isNew: result.isNew };
     }
+    return { success: false, error: result.error };
+  }
+
+  async function register(data: { phone: string; name: string; role: string; vehicleType?: string; vehicleNumber?: string; licenseNumber?: string }) {
+    const result = await apiCall('/api/auth/register', data);
+    if (result.success) {
+      await AsyncStorage.setItem('auth_token', result.token);
+      await AsyncStorage.setItem('auth_user', JSON.stringify(result.user));
+      setToken(result.token);
+      setUser(result.user);
+      return { success: true };
+    }
+    return { success: false, error: result.error };
   }
 
   async function logout() {
-    await AsyncStorage.removeItem('currentUser');
+    await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('auth_user');
+    setToken(null);
     setUser(null);
   }
 
-  async function updateUser(updates: Partial<UserData>) {
+  function updateUser(updates: Partial<UserData>) {
     if (!user) return;
     const updated = { ...user, ...updates };
     setUser(updated);
-    await AsyncStorage.setItem('currentUser', JSON.stringify(updated));
-    const usersRaw = await AsyncStorage.getItem('users');
-    const users: UserData[] = usersRaw ? JSON.parse(usersRaw) : [];
-    const idx = users.findIndex((u) => u.id === user.id);
-    if (idx >= 0) {
-      users[idx] = updated;
-      await AsyncStorage.setItem('users', JSON.stringify(users));
+    AsyncStorage.setItem('auth_user', JSON.stringify(updated));
+  }
+
+  async function refreshUser() {
+    if (!token) return;
+    try {
+      const baseUrl = getApiUrl();
+      const url = new URL('/api/auth/me', baseUrl);
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.user) {
+        setUser(data.user);
+        await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+      }
+    } catch (e) {
+      console.error('Failed to refresh user:', e);
     }
   }
 
-  const value = useMemo(
-    () => ({
-      user,
-      loading,
-      isAuthenticated: !!user,
-      login,
-      register,
-      logout,
-      updateUser,
-    }),
-    [user, loading],
-  );
+  const value = useMemo(() => ({
+    user, token, loading, isAuthenticated: !!user && !!token,
+    sendOtp, verifyOtp, register, logout, updateUser, refreshUser,
+  }), [user, token, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }
