@@ -26,7 +26,7 @@ function ShimmerButton({ onPress, disabled, isLoading }: { onPress: () => void; 
       Animated.timing(shimmerAnim, {
         toValue: 1,
         duration: 2000,
-        useNativeDriver: true,
+        useNativeDriver: false,
       })
     );
     loop.start();
@@ -102,20 +102,20 @@ function AnimatedRequestCard({
         toValue: 0,
         duration: 400,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
         duration: 400,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start(() => {
       Animated.spring(badgeBounce, {
         toValue: 1,
         friction: 4,
         tension: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     });
   }, []);
@@ -124,7 +124,7 @@ function AnimatedRequestCard({
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -132,7 +132,7 @@ function AnimatedRequestCard({
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -220,7 +220,7 @@ function AnimatedEmptyState() {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, []);
 

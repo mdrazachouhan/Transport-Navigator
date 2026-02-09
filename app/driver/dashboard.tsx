@@ -50,12 +50,12 @@ function AnimatedStatCard({
           toValue: 0,
           friction: 6,
           tension: 50,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(opacity, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -67,12 +67,12 @@ function AnimatedStatCard({
           toValue: 1,
           friction: 5,
           tension: 60,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(valueOpacity, {
           toValue: 1,
           duration: 400,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -82,7 +82,7 @@ function AnimatedStatCard({
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -90,7 +90,7 @@ function AnimatedStatCard({
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -140,12 +140,12 @@ function AnimatedRequestsButton({ onPress }: { onPress: () => void }) {
         Animated.timing(pulseAnim, {
           toValue: 1.02,
           duration: 1500,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1500,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     );
@@ -157,7 +157,7 @@ function AnimatedRequestsButton({ onPress }: { onPress: () => void }) {
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -165,7 +165,7 @@ function AnimatedRequestsButton({ onPress }: { onPress: () => void }) {
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -243,24 +243,24 @@ function AnimatedActiveCard({
           Animated.timing(dotScale, {
             toValue: 1.4,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(dotOpacity, {
             toValue: 0.4,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]),
         Animated.parallel([
           Animated.timing(dotScale, {
             toValue: 1,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(dotOpacity, {
             toValue: 1,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]),
       ])
@@ -287,7 +287,7 @@ function AnimatedActiveCard({
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -295,7 +295,7 @@ function AnimatedActiveCard({
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -306,10 +306,10 @@ function AnimatedActiveCard({
         {
           borderColor,
           shadowOpacity,
+          transform: [{ scale: scaleAnim }],
         },
       ]}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
         activeOpacity={1}
         onPress={onPress}
@@ -365,7 +365,6 @@ function AnimatedActiveCard({
           <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
         </View>
       </TouchableOpacity>
-      </Animated.View>
     </Animated.View>
   );
 }
@@ -392,12 +391,12 @@ function AnimatedCompletedCard({
           toValue: 0,
           friction: 7,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(opacity, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -407,7 +406,7 @@ function AnimatedCompletedCard({
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -415,7 +414,7 @@ function AnimatedCompletedCard({
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 8,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 

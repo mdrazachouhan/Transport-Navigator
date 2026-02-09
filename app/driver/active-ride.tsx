@@ -33,13 +33,13 @@ function AnimatedCard({ children, index, style }: { children: React.ReactNode; i
         toValue: 0,
         duration: 400,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
         duration: 400,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -71,7 +71,7 @@ function AnimatedStepIndicator({ step, index, currentStep }: { step: string; ind
           toValue: 1,
           friction: 5,
           tension: 150,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
     } else {
@@ -141,12 +141,12 @@ function PulsingCallButton({ onPress }: { onPress: () => void }) {
         Animated.timing(pulseAnim, {
           toValue: 1.1,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     );
@@ -173,12 +173,12 @@ function PulsingCompleteButton({ onPress, disabled, isLoading }: { onPress: () =
           Animated.timing(pulseAnim, {
             toValue: 1.02,
             duration: 1200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
             duration: 1200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ])
       );
@@ -265,12 +265,12 @@ function CelebrationBanner() {
         toValue: 1.1,
         friction: 4,
         tension: 100,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         friction: 6,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
