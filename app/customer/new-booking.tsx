@@ -15,13 +15,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import RouteMap from '@/components/RouteMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import Colors from '@/constants/colors';
-import { MOCK_LOCATIONS, INDORE_REGION, type Location } from '@/lib/locations';
+import { MOCK_LOCATIONS, type Location } from '@/lib/locations';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -126,7 +126,6 @@ export default function NewBookingScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { createBooking } = useBookings();
-  const mapRef = useRef<MapView>(null);
 
   const [pickup, setPickup] = useState<Location | null>(null);
   const [delivery, setDelivery] = useState<Location | null>(null);
@@ -172,15 +171,6 @@ export default function NewBookingScreen() {
         Animated.timing(mapFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
 
-      setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          [
-            { latitude: pickup.lat, longitude: pickup.lng },
-            { latitude: delivery.lat, longitude: delivery.lng },
-          ],
-          { edgePadding: { top: 80, right: 60, bottom: 200, left: 60 }, animated: true }
-        );
-      }, 300);
     } else {
       bottomSheetAnim.setValue(0);
       mapFadeAnim.setValue(0);
@@ -237,14 +227,6 @@ export default function NewBookingScreen() {
     }
   };
 
-  const routeCoords = bothSelected
-    ? [
-        { latitude: pickup.lat, longitude: pickup.lng },
-        { latitude: (pickup.lat + delivery.lat) / 2 + 0.003, longitude: (pickup.lng + delivery.lng) / 2 + 0.002 },
-        { latitude: delivery.lat, longitude: delivery.lng },
-      ]
-    : [];
-
   const rideSheetTranslateY = bottomSheetAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [400, 0],
@@ -254,32 +236,7 @@ export default function NewBookingScreen() {
     <View style={[styles.container]}>
       {bothSelected ? (
         <Animated.View style={[styles.mapContainer, { opacity: mapFadeAnim }]}>
-          <MapView
-            ref={mapRef}
-            style={StyleSheet.absoluteFill}
-            provider={PROVIDER_DEFAULT}
-            initialRegion={INDORE_REGION}
-            showsUserLocation={false}
-            showsMyLocationButton={false}
-            toolbarEnabled={false}
-          >
-            <Marker
-              coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
-              title={pickup.name}
-              pinColor={Colors.success}
-            />
-            <Marker
-              coordinate={{ latitude: delivery.lat, longitude: delivery.lng }}
-              title={delivery.name}
-              pinColor={Colors.danger}
-            />
-            <Polyline
-              coordinates={routeCoords}
-              strokeColor={Colors.primary}
-              strokeWidth={4}
-              lineDashPattern={[0]}
-            />
-          </MapView>
+          <RouteMap pickup={pickup} delivery={delivery} />
         </Animated.View>
       ) : (
         <View style={[styles.searchBackground]}>
