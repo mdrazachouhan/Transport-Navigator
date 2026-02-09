@@ -21,22 +21,26 @@ function setupCors(app: express.Application) {
 
     if (process.env.REPLIT_DEV_DOMAIN) {
       origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}:5000`);
     }
 
     if (process.env.REPLIT_DOMAINS) {
       process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
         origins.add(`https://${d.trim()}`);
+        origins.add(`https://${d.trim()}:5000`);
       });
     }
 
     const origin = req.header("origin");
 
-    // Allow localhost origins for Expo web development (any port)
     const isLocalhost =
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
 
-    if (origin && (origins.has(origin) || isLocalhost)) {
+    const isReplitOrigin = origin && process.env.REPLIT_DEV_DOMAIN &&
+      origin.includes(process.env.REPLIT_DEV_DOMAIN);
+
+    if (origin && (origins.has(origin) || isLocalhost || isReplitOrigin)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
