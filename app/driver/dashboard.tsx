@@ -306,10 +306,10 @@ function AnimatedActiveCard({
         {
           borderColor,
           shadowOpacity,
-          transform: [{ scale: scaleAnim }],
         },
       ]}
     >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
         activeOpacity={1}
         onPress={onPress}
@@ -365,6 +365,7 @@ function AnimatedActiveCard({
           <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
         </View>
       </TouchableOpacity>
+      </Animated.View>
     </Animated.View>
   );
 }
