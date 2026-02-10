@@ -41,7 +41,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const defaults: NotificationItem[] = [
           {
             id: Date.now().toString() + '1',
-            title: 'Welcome to TransportGo',
+            title: 'Welcome to My Load 24',
             message: 'Your account is ready. Book your first ride now!',
             type: 'system',
             read: false,

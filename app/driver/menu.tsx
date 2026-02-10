@@ -97,7 +97,7 @@ export default function DriverMenuScreen() {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>TransportGo v1.0.0</Text>
+        <Text style={styles.version}>My Load 24 v1.0.0</Text>
       </ScrollView>
     </View>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Platform, Alert, KeyboardAvoidingView, ScrollView, ActivityIndicator, Dimensions, Easing } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Platform, Alert, KeyboardAvoidingView, ScrollView, ActivityIndicator, Dimensions, Easing, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAppMode, getAppName, getAppSubtitle } from '@/lib/app-config';
+
+const appLogo = require('@/assets/images/logo.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -231,7 +233,7 @@ export default function LoginScreen() {
             <View style={styles.logoGlowWrap}>
               <Animated.View style={[styles.glowRing, { opacity: glowPulse }]} />
               <View style={styles.logoCircle}>
-                <MaterialCommunityIcons name={appMode === 'driver' ? 'steering' : 'truck-fast'} size={40} color={Colors.surface} />
+                <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
               </View>
             </View>
             <Text style={styles.title}>{getAppName()}</Text>
@@ -364,7 +366,7 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.primary,
@@ -372,6 +374,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
+    overflow: 'hidden' as const,
+  },
+  logoImage: {
+    width: 64,
+    height: 64,
   },
   title: {
     fontSize: 32,
