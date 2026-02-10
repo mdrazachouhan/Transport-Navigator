@@ -584,12 +584,10 @@ export default function DriverDashboardScreen() {
             <Animated.View
               style={[
                 styles.toggleContainer,
-                user?.isOnline && {
-                  backgroundColor: onlineGlowColor,
-                  borderRadius: 20,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                },
+                styles.toggleHighlight,
+                user?.isOnline
+                  ? { backgroundColor: onlineGlowColor, borderColor: Colors.accent }
+                  : { borderColor: 'rgba(255,255,255,0.4)' },
               ]}
             >
               <Text style={styles.toggleLabel}>
@@ -757,6 +755,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  toggleHighlight: {
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   toggleLabel: {
     fontSize: 13,
