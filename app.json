@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "TransportGo",
-    "slug": "transport-go",
+    "name": "My Load 24",
+    "slug": "my-load-24",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "transportgo",
+    "scheme": "myload24",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.transportgo"
+      "bundleIdentifier": "com.myload24"
     },
     "android": {
-      "package": "com.transportgo",
+      "package": "com.myload24",
       "adaptiveIcon": {
         "backgroundColor": "#0A1628",
         "foregroundImage": "./assets/images/icon.png"
