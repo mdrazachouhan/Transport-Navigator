@@ -49,6 +49,7 @@ const IGNORE_PATTERNS = [
   '.cache',
   '.expo',
   'dist',
+  'web-build',
   'server_dist',
   'static-build',
   '.replit',
@@ -61,6 +62,11 @@ const IGNORE_PATTERNS = [
   'replit.nix',
   'replit_zip_error_log.txt',
   'scripts/push-to-github.ts',
+  'expo-env.d.ts',
+  'tsconfig.tsbuildinfo',
+  '.DS_Store',
+  '.env',
+  '.env.local',
 ];
 
 function shouldIgnore(filePath: string): boolean {
@@ -91,7 +97,7 @@ function getAllFiles(dir: string, baseDir: string = dir): string[] {
 }
 
 async function main() {
-  const repoName = 'transport-go-app';
+  const repoName = 'my-load-24';
   const isPublic = true;
 
   console.log('Connecting to GitHub...');
@@ -113,7 +119,7 @@ async function main() {
     console.log(`Creating public repository: ${repoName}...`);
     await octokit.repos.createForAuthenticatedUser({
       name: repoName,
-      description: 'TransportGo - A transport/logistics mobile application built with React Native (Expo) and Express backend',
+      description: 'My Load 24 - Transport & Logistics Mobile App (React Native Expo + Express + MongoDB). Customer App, Driver App & Admin Panel.',
       private: !isPublic,
       auto_init: true,
     });
@@ -178,7 +184,7 @@ async function main() {
   const { data: commitData } = await octokit.git.createCommit({
     owner: user.login,
     repo: repoName,
-    message: 'Initial commit - TransportGo app',
+    message: 'My Load 24 - Complete transport booking system\n\nReact Native Expo mobile app + Express backend + Admin panel\nFeatures: Phone+OTP auth, real-time tracking, vehicle booking, driver management',
     tree: treeData.sha,
     parents: parentSha ? [parentSha] : [],
   });
@@ -210,8 +216,10 @@ async function main() {
     });
   }
 
-  console.log(`\nDone! Your code is now public on GitHub:`);
-  console.log(`https://github.com/${user.login}/${repoName}`);
+  console.log(`\n========================================`);
+  console.log(`All files pushed to GitHub!`);
+  console.log(`Repository: https://github.com/${user.login}/${repoName}`);
+  console.log(`========================================`);
 }
 
 main().catch(err => {
