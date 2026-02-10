@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 
@@ -467,6 +468,7 @@ export default function DriverDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout, token, refreshUser } = useAuth();
   const { bookings, fetchBookings, getActiveBooking } = useBookings();
+  const { unreadCount } = useNotifications();
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
 
   const onlineGlowAnim = useRef(new Animated.Value(0)).current;
@@ -569,7 +571,7 @@ export default function DriverDashboardScreen() {
         style={[styles.header, { paddingTop: topInset + 12 }]}
       >
         <View style={styles.headerTop}>
-          <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.headerLeft} onPress={() => router.push('/driver/menu' as any)} activeOpacity={0.7}>
             <View style={styles.avatarContainer}>
               <Ionicons name="person" size={20} color={Colors.surface} />
             </View>
@@ -577,7 +579,7 @@ export default function DriverDashboardScreen() {
               <Text style={styles.greetingText}>Welcome back,</Text>
               <Text style={styles.userName}>{user?.name || 'Driver'}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <View style={styles.headerRight}>
             <Animated.View
               style={[
@@ -604,8 +606,16 @@ export default function DriverDashboardScreen() {
                 />
               )}
             </Animated.View>
-            <TouchableOpacity style={styles.headerButton} onPress={handleLogout}>
-              <Feather name="log-out" size={20} color={Colors.surface} />
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/driver/notifications' as any)}>
+              <Ionicons name="notifications-outline" size={20} color={Colors.surface} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/driver/menu' as any)}>
+              <Ionicons name="menu" size={22} color={Colors.surface} />
             </TouchableOpacity>
           </View>
         </View>
@@ -723,6 +733,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.danger,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Colors.navyDark,
+  },
+  bellBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.surface,
   },
   toggleContainer: {
     flexDirection: 'row',

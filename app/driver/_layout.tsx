@@ -7,6 +7,14 @@ export default function DriverLayout() {
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="requests" />
       <Stack.Screen name="active-ride" />
+      <Stack.Screen name="menu" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="history" />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="safety" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen name="help" />
+      <Stack.Screen name="support" />
     </Stack>
   );
 }
