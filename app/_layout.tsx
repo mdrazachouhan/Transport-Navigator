@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { BookingProvider } from '@/contexts/BookingContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,7 +57,9 @@ export default function RootLayout() {
           <KeyboardProvider>
             <AuthProvider>
               <BookingProvider>
-                <RootLayoutNav />
+                <NotificationProvider>
+                  <RootLayoutNav />
+                </NotificationProvider>
               </BookingProvider>
             </AuthProvider>
           </KeyboardProvider>

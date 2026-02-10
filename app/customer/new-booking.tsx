@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import RouteMap from '@/components/RouteMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
 import { MOCK_LOCATIONS, type Location } from '@/lib/locations';
 
@@ -126,6 +127,7 @@ export default function NewBookingScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { createBooking } = useBookings();
+  const { addNotification } = useNotifications();
 
   const [pickup, setPickup] = useState<Location | null>(null);
   const [delivery, setDelivery] = useState<Location | null>(null);
@@ -213,6 +215,7 @@ export default function NewBookingScreen() {
         paymentMethod,
       });
       if (result.success && result.booking) {
+        addNotification('Booking Created', `Your ${vehicleType} booking from ${pickup.name} to ${delivery.name} has been placed.`, 'booking');
         router.replace({
           pathname: '/customer/track-ride',
           params: { bookingId: result.booking.id },

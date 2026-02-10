@@ -17,6 +17,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
 import { MOCK_LOCATIONS } from '@/lib/locations';
 
@@ -171,8 +172,9 @@ function LocationChip({ location, onPress }: { location: typeof MOCK_LOCATIONS[0
 export default function CustomerHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { bookings, fetchBookings, getActiveBooking } = useBookings();
+  const { unreadCount } = useNotifications();
 
   const webTop = Platform.OS === 'web' ? 67 : 0;
   const webBottom = Platform.OS === 'web' ? 34 : 0;
@@ -243,11 +245,6 @@ export default function CustomerHomeScreen() {
       }).start();
     }
   }, [activeBooking]);
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/');
-  };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -334,7 +331,7 @@ export default function CustomerHomeScreen() {
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.headerLeft} onPress={() => router.push('/customer/menu' as any)} activeOpacity={0.7}>
             <View style={styles.avatarContainer}>
               <Ionicons name="person" size={20} color={Colors.surface} />
             </View>
@@ -376,16 +373,24 @@ export default function CustomerHomeScreen() {
                 {user?.name || 'User'}
               </Animated.Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.headerButton}
-              onPress={() => router.push('/customer/history' as any)}
+              onPress={() => router.push('/customer/notifications' as any)}
             >
-              <Ionicons name="time-outline" size={22} color={Colors.surface} />
+              <Ionicons name="notifications-outline" size={22} color={Colors.surface} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={handleLogout}>
-              <Feather name="log-out" size={20} color={Colors.surface} />
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => router.push('/customer/menu' as any)}
+            >
+              <Ionicons name="menu" size={24} color={Colors.surface} />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -586,6 +591,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.surface,
   },
   activeBanner: {
     position: 'absolute',

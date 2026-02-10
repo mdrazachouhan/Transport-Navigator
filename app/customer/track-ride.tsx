@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBookings } from '@/contexts/BookingContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
 
 const CANCEL_REASONS = [
@@ -380,6 +381,7 @@ export default function TrackRideScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const insets = useSafeAreaInsets();
   const { bookings, fetchBookings, cancelBooking, getBookingById } = useBookings();
+  const { addNotification } = useNotifications();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const dotAnim = useRef(new Animated.Value(0)).current;
@@ -412,10 +414,21 @@ export default function TrackRideScreen() {
 
   const booking = getBookingById(bookingId as string);
 
+  const prevStatusRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (booking?.status === 'completed' && !hasNavigated.current) {
-      hasNavigated.current = true;
-      router.replace({ pathname: '/customer/rate-ride', params: { bookingId: booking.id } });
+    if (booking && booking.status !== prevStatusRef.current) {
+      if (booking.status === 'accepted' && prevStatusRef.current === 'pending') {
+        addNotification('Driver Assigned', `${booking.driverName || 'A driver'} has accepted your booking.`, 'booking');
+      } else if (booking.status === 'in_progress' && prevStatusRef.current === 'accepted') {
+        addNotification('Trip Started', 'Your goods are on the way to the destination.', 'booking');
+      } else if (booking.status === 'completed') {
+        addNotification('Delivery Complete', `Your delivery to ${booking.delivery?.name || 'destination'} is complete.`, 'booking');
+        if (!hasNavigated.current) {
+          hasNavigated.current = true;
+          router.replace({ pathname: '/customer/rate-ride', params: { bookingId: booking.id } });
+        }
+      }
+      prevStatusRef.current = booking.status;
     }
   }, [booking?.status]);
 
@@ -423,10 +436,11 @@ export default function TrackRideScreen() {
     if (!bookingId) return;
     setCancelling(true);
     await cancelBooking(bookingId as string, reason);
+    addNotification('Booking Cancelled', `Your booking has been cancelled. Reason: ${reason}`, 'booking');
     setCancelling(false);
     setCancelModalVisible(false);
     router.back();
-  }, [bookingId, cancelBooking, router]);
+  }, [bookingId, cancelBooking, addNotification, router]);
 
   const handleSOS = () => {
     Alert.alert('SOS', 'Are you sure you want to trigger an emergency alert?', [
