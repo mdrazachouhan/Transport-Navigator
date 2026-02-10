@@ -581,29 +581,6 @@ export default function DriverDashboardScreen() {
             </View>
           </TouchableOpacity>
           <View style={styles.headerRight}>
-            <Animated.View
-              style={[
-                styles.toggleContainer,
-                styles.toggleHighlight,
-                user?.isOnline
-                  ? { backgroundColor: onlineGlowColor, borderColor: Colors.accent }
-                  : { borderColor: 'rgba(255,255,255,0.4)' },
-              ]}
-            >
-              <Text style={styles.toggleLabel}>
-                {user?.isOnline ? 'Online' : 'Offline'}
-              </Text>
-              {isTogglingOnline ? (
-                <ActivityIndicator size="small" color={Colors.surface} />
-              ) : (
-                <Switch
-                  value={user?.isOnline ?? false}
-                  onValueChange={handleToggleOnline}
-                  trackColor={{ false: 'rgba(255,255,255,0.2)', true: Colors.accent }}
-                  thumbColor={Colors.surface}
-                />
-              )}
-            </Animated.View>
             <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/driver/notifications' as any)}>
               <Ionicons name="notifications-outline" size={20} color={Colors.surface} />
               {unreadCount > 0 && (
@@ -618,6 +595,37 @@ export default function DriverDashboardScreen() {
           </View>
         </View>
       </LinearGradient>
+
+      <Animated.View
+        style={[
+          styles.onlineSection,
+          user?.isOnline
+            ? { borderColor: Colors.accent, backgroundColor: onlineGlowColor }
+            : {},
+        ]}
+      >
+        <View style={styles.onlineSectionLeft}>
+          <View style={[styles.onlineDot, user?.isOnline ? styles.onlineDotActive : styles.onlineDotInactive]} />
+          <View>
+            <Text style={styles.onlineSectionTitle}>
+              {user?.isOnline ? 'You are Online' : 'You are Offline'}
+            </Text>
+            <Text style={styles.onlineSectionSub}>
+              {user?.isOnline ? 'Receiving ride requests' : 'Go online to receive rides'}
+            </Text>
+          </View>
+        </View>
+        {isTogglingOnline ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <Switch
+            value={user?.isOnline ?? false}
+            onValueChange={handleToggleOnline}
+            trackColor={{ false: '#D1D5DB', true: Colors.accent }}
+            thumbColor={Colors.surface}
+          />
+        )}
+      </Animated.View>
 
       <ScrollView
         style={styles.content}
@@ -751,22 +759,46 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     color: Colors.surface,
   },
-  toggleContainer: {
+  onlineSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  toggleHighlight: {
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: -12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderRadius: 24,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: Colors.cardBorder,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.08)',
   },
-  toggleLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.surface,
+  onlineSectionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  onlineDotActive: {
+    backgroundColor: Colors.accent,
+  },
+  onlineDotInactive: {
+    backgroundColor: '#9CA3AF',
+  },
+  onlineSectionTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.text,
+  },
+  onlineSectionSub: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   headerButton: {
     width: 40,
