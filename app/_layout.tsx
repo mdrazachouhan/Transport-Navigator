@@ -31,32 +31,41 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function loadFonts() {
+      const fontPromise = Font.loadAsync({
+        Inter_400Regular,
+        Inter_500Medium,
+        Inter_600SemiBold,
+        Inter_700Bold,
+      });
+      fontPromise.catch(() => {});
       try {
         await Promise.race([
-          Font.loadAsync({
-            Inter_400Regular,
-            Inter_500Medium,
-            Inter_600SemiBold,
-            Inter_700Bold,
-          }),
-          new Promise((resolve) => setTimeout(resolve, 4000)),
+          fontPromise,
+          new Promise((resolve) => setTimeout(resolve, 3000)),
         ]);
       } catch (e) {
       }
       setReady(true);
     }
     loadFonts();
-  }, []);
 
-  useEffect(() => {
     if (Platform.OS === 'web') {
-      const handler = (event: PromiseRejectionEvent) => {
+      const errorHandler = (event: ErrorEvent) => {
+        if (event.message?.includes('timeout exceeded')) {
+          event.preventDefault();
+        }
+      };
+      const rejectionHandler = (event: PromiseRejectionEvent) => {
         if (event.reason?.message?.includes('timeout exceeded')) {
           event.preventDefault();
         }
       };
-      window.addEventListener('unhandledrejection', handler);
-      return () => window.removeEventListener('unhandledrejection', handler);
+      window.addEventListener('error', errorHandler);
+      window.addEventListener('unhandledrejection', rejectionHandler);
+      return () => {
+        window.removeEventListener('error', errorHandler);
+        window.removeEventListener('unhandledrejection', rejectionHandler);
+      };
     }
   }, []);
 
