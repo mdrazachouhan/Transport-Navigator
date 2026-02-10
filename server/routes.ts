@@ -79,9 +79,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let user = await storage.getUserByPhone(phone);
     const isNew = !user;
     if (!user) {
-      user = await storage.createUser({ name: '', phone, role: role || 'customer', isOnline: false, isApproved: role === 'customer' });
+      user = await storage.createUser({ name: '', phone, role: role || 'customer', isOnline: false, isApproved: true });
     } else if (role && role !== user.role && user.role !== 'admin') {
-      user = (await storage.updateUser(user.id, { role, isApproved: role === 'customer' }))!;
+      user = (await storage.updateUser(user.id, { role, isApproved: true }))!;
     }
     const token = generateToken({ userId: user.id, phone: user.phone, role: user.role });
     res.json({ success: true, token, user, isNew });
@@ -92,11 +92,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phone || !name) return res.status(400).json({ error: 'Phone and name required' });
     let user = await storage.getUserByPhone(phone);
     if (user) {
-      user = (await storage.updateUser(user.id, { name, role: role || user.role, vehicleType, vehicleNumber, licenseNumber, isApproved: role === 'customer' }))!;
+      user = (await storage.updateUser(user.id, { name, role: role || user.role, vehicleType, vehicleNumber, licenseNumber, isApproved: true }))!;
     } else {
       user = await storage.createUser({
         name, phone, role: role || 'customer', vehicleType, vehicleNumber, licenseNumber,
-        isOnline: false, isApproved: role === 'customer', rating: role === 'driver' ? 4.0 : undefined,
+        isOnline: false, isApproved: true, rating: role === 'driver' ? 4.0 : undefined,
         totalTrips: 0, totalEarnings: 0,
       });
     }
@@ -178,9 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/bookings/pending', authMiddleware, roleMiddleware('driver'), async (req, res) => {
-    const { userId } = (req as any).user as JwtPayload;
-    const driver = await storage.getUserById(userId);
-    const bookings = await storage.getPendingBookings(driver?.vehicleType);
+    const bookings = await storage.getPendingBookings();
     res.json({ bookings });
   });
 
