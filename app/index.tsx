@@ -130,8 +130,13 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      if (user.role === 'customer') router.replace('/customer/home' as any);
-      else if (user.role === 'driver') router.replace('/driver/dashboard' as any);
+      if (!user.name || user.name.trim() === '') {
+        router.replace({ pathname: '/register' as any, params: { phone: user.phone, role: user.role } });
+      } else if (user.role === 'customer') {
+        router.replace('/customer/home' as any);
+      } else if (user.role === 'driver') {
+        router.replace('/driver/dashboard' as any);
+      }
     }
   }, [authLoading, isAuthenticated, user]);
 
@@ -188,7 +193,7 @@ export default function LoginScreen() {
     const result = await verifyOtp(phone, otp, selectedRole);
     setLoading(false);
     if (result.success) {
-      if (result.isNew) {
+      if (result.isNew || !user?.name || user?.name?.trim() === '') {
         router.replace({ pathname: '/register' as any, params: { phone, role: selectedRole } });
       } else if (selectedRole === 'customer') {
         router.replace('/customer/home' as any);
