@@ -14,8 +14,10 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { io } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings, BookingData } from '@/contexts/BookingContext';
+import { getApiUrl } from '@/lib/query-client';
 import Colors from '@/constants/colors';
 
 function ShimmerButton({ onPress, disabled, isLoading }: { onPress: () => void; disabled: boolean; isLoading: boolean }) {
@@ -265,7 +267,23 @@ export default function DriverRequestsScreen() {
     const interval = setInterval(() => {
       loadPendingBookings();
     }, 5000);
-    return () => clearInterval(interval);
+
+    let socket: any;
+    try {
+      const apiUrl = getApiUrl();
+      socket = io(apiUrl, { transports: ['websocket', 'polling'], path: '/socket.io' });
+      socket.on('booking:new', () => {
+        loadPendingBookings();
+      });
+      socket.on('booking:updated', () => {
+        loadPendingBookings();
+      });
+    } catch (e) {}
+
+    return () => {
+      clearInterval(interval);
+      if (socket) socket.disconnect();
+    };
   }, [loadPendingBookings]);
 
   const handleAccept = async (bookingId: string) => {

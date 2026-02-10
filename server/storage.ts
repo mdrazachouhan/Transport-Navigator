@@ -154,6 +154,11 @@ class MongoStorage {
       });
       console.log('Seeded default admin user');
     }
+
+    const approvedCount = await UserModel.updateMany({ isApproved: { $ne: true } }, { $set: { isApproved: true } });
+    if (approvedCount.modifiedCount > 0) {
+      console.log(`Auto-approved ${approvedCount.modifiedCount} users`);
+    }
   }
 
   async createUser(data: Omit<User, 'id' | 'createdAt'>): Promise<User> {
