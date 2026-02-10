@@ -80,6 +80,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const isNew = !user;
     if (!user) {
       user = await storage.createUser({ name: '', phone, role: role || 'customer', isOnline: false, isApproved: role === 'customer' });
+    } else if (role && role !== user.role && user.role !== 'admin') {
+      user = (await storage.updateUser(user.id, { role, isApproved: role === 'customer' }))!;
     }
     const token = generateToken({ userId: user.id, phone: user.phone, role: user.role });
     res.json({ success: true, token, user, isNew });
