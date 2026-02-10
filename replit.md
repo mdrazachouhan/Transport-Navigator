@@ -13,11 +13,13 @@ Preferred communication style: Simple, everyday language.
 ### Frontend (Mobile App)
 - **Framework**: React Native with Expo SDK 54, using expo-router for file-based routing
 - **Language**: TypeScript throughout
+- **App Mode**: Controlled by `EXPO_PUBLIC_APP_MODE` env var (`customer` or `driver`). Each mode acts as a separate app with its own branding, login flow (no role selector), and screens.
 - **Navigation**: File-based routing via `expo-router` with nested layouts:
-  - `app/index.tsx` — Phone + OTP login screen with role selection (Customer/Driver)
-  - `app/register.tsx` — Profile completion (name, vehicle details for drivers)
+  - `app/index.tsx` — Phone + OTP login screen (role auto-assigned from APP_MODE, no role selector)
+  - `app/register.tsx` — Profile completion (name for customers, name + vehicle details for drivers)
   - `app/customer/` — Customer screens (home, new-booking, track-ride, history, rate-ride)
   - `app/driver/` — Driver screens (dashboard, requests, active-ride)
+- **App Config**: `lib/app-config.ts` — getAppMode(), getAppName(), getAppSubtitle() utilities
 - **State Management**: React Context API with two main contexts:
   - `AuthContext` — Phone+OTP authentication via backend API, JWT token storage in AsyncStorage
   - `BookingContext` — Full booking lifecycle via backend API (create, accept, start, complete, cancel, rate)
