@@ -1,10 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Font from 'expo-font';
 import React, { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -25,22 +27,38 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-  });
-  const [fontTimedOut, setFontTimedOut] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFontTimedOut(true);
-    }, 5000);
-    return () => clearTimeout(timer);
+    async function loadFonts() {
+      try {
+        await Promise.race([
+          Font.loadAsync({
+            Inter_400Regular,
+            Inter_500Medium,
+            Inter_600SemiBold,
+            Inter_700Bold,
+          }),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ]);
+      } catch (e) {
+      }
+      setReady(true);
+    }
+    loadFonts();
   }, []);
 
-  const ready = fontsLoaded || !!fontError || fontTimedOut;
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handler = (event: PromiseRejectionEvent) => {
+        if (event.reason?.message?.includes('timeout exceeded')) {
+          event.preventDefault();
+        }
+      };
+      window.addEventListener('unhandledrejection', handler);
+      return () => window.removeEventListener('unhandledrejection', handler);
+    }
+  }, []);
 
   useEffect(() => {
     if (ready) {
