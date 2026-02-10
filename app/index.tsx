@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAppMode, getAppName, getAppSubtitle } from '@/lib/app-config';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -79,13 +80,12 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'customer' | 'driver'>('customer');
+  const appMode = getAppMode();
   const [loading, setLoading] = useState(false);
   const [sentOtpValue, setSentOtpValue] = useState('');
 
   const logoSlide = useRef(new Animated.Value(-40)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const roleOpacity = useRef(new Animated.Value(0)).current;
   const formSlide = useRef(new Animated.Value(60)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
 
@@ -96,16 +96,12 @@ export default function LoginScreen() {
   const phoneFormOpacity = useRef(new Animated.Value(1)).current;
   const otpFormOpacity = useRef(new Animated.Value(0)).current;
 
-  const customerScale = useRef(new Animated.Value(1)).current;
-  const driverScale = useRef(new Animated.Value(1)).current;
-
   useEffect(() => {
     Animated.stagger(200, [
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
         Animated.timing(logoSlide, { toValue: 0, duration: 700, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
       ]),
-      Animated.timing(roleOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.parallel([
         Animated.timing(formOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(formSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.back(1.1)), useNativeDriver: true }),
@@ -131,10 +127,10 @@ export default function LoginScreen() {
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (!user.name || user.name.trim() === '') {
-        router.replace({ pathname: '/register' as any, params: { phone: user.phone, role: user.role } });
-      } else if (user.role === 'customer') {
+        router.replace({ pathname: '/register' as any, params: { phone: user.phone, role: appMode } });
+      } else if (appMode === 'customer') {
         router.replace('/customer/home' as any);
-      } else if (user.role === 'driver') {
+      } else {
         router.replace('/driver/dashboard' as any);
       }
     }
@@ -161,13 +157,6 @@ export default function LoginScreen() {
     });
   }
 
-  function animateRolePress(scale: Animated.Value) {
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 0.92, duration: 100, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 1, duration: 150, easing: Easing.out(Easing.back(2)), useNativeDriver: true }),
-    ]).start();
-  }
-
   async function handleSendOtp() {
     if (phone.length < 10) {
       Alert.alert('Error', 'Enter a valid 10-digit phone number');
@@ -190,12 +179,12 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-    const result = await verifyOtp(phone, otp, selectedRole);
+    const result = await verifyOtp(phone, otp, appMode);
     setLoading(false);
     if (result.success) {
       if (result.isNew || !user?.name || user?.name?.trim() === '') {
-        router.replace({ pathname: '/register' as any, params: { phone, role: selectedRole } });
-      } else if (selectedRole === 'customer') {
+        router.replace({ pathname: '/register' as any, params: { phone, role: appMode } });
+      } else if (appMode === 'customer') {
         router.replace('/customer/home' as any);
       } else {
         router.replace('/driver/dashboard' as any);
@@ -242,34 +231,11 @@ export default function LoginScreen() {
             <View style={styles.logoGlowWrap}>
               <Animated.View style={[styles.glowRing, { opacity: glowPulse }]} />
               <View style={styles.logoCircle}>
-                <MaterialCommunityIcons name="truck-fast" size={40} color={Colors.surface} />
+                <MaterialCommunityIcons name={appMode === 'driver' ? 'steering' : 'truck-fast'} size={40} color={Colors.surface} />
               </View>
             </View>
-            <Text style={styles.title}>TransportGo</Text>
-            <Text style={styles.subtitle}>Fast & reliable goods delivery</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.roleSelector, { opacity: roleOpacity }]}>
-            <Animated.View style={{ flex: 1, transform: [{ scale: customerScale }] }}>
-              <TouchableOpacity
-                style={[styles.roleBtn, selectedRole === 'customer' && styles.roleBtnActive]}
-                onPress={() => { setSelectedRole('customer'); animateRolePress(customerScale); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="cube-outline" size={20} color={selectedRole === 'customer' ? Colors.surface : Colors.textTertiary} />
-                <Text style={[styles.roleText, selectedRole === 'customer' && styles.roleTextActive]}>Customer</Text>
-              </TouchableOpacity>
-            </Animated.View>
-            <Animated.View style={{ flex: 1, transform: [{ scale: driverScale }] }}>
-              <TouchableOpacity
-                style={[styles.roleBtn, selectedRole === 'driver' && styles.roleBtnActive]}
-                onPress={() => { setSelectedRole('driver'); animateRolePress(driverScale); }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="steering" size={20} color={selectedRole === 'driver' ? Colors.surface : Colors.textSecondary} />
-                <Text style={[styles.roleText, selectedRole === 'driver' && styles.roleTextActive]}>Driver</Text>
-              </TouchableOpacity>
-            </Animated.View>
+            <Text style={styles.title}>{getAppName()}</Text>
+            <Text style={styles.subtitle}>{getAppSubtitle()}</Text>
           </Animated.View>
 
           <Animated.View style={[styles.formCard, { opacity: formOpacity, transform: [{ translateY: formSlide }] }]}>
@@ -419,29 +385,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginTop: 6,
   },
-  roleSelector: { flexDirection: 'row', gap: 12, marginBottom: 28 },
-  roleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: Colors.glass,
-    borderWidth: 1.5,
-    borderColor: Colors.glassBorder,
-  },
-  roleBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  roleText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.textTertiary },
-  roleTextActive: { color: Colors.surface },
   formCard: {
     backgroundColor: Colors.glass,
     borderRadius: 24,

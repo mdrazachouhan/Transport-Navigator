@@ -78,3 +78,4 @@ ensurePreviewReachable = "/status"
 
 [userenv.shared]
 MONGODB_URI = "mongodb+srv://raza:Raza%409926@raza.4snf3fg.mongodb.net/?appName=raza"
+EXPO_PUBLIC_APP_MODE = "customer"
