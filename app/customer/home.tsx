@@ -22,12 +22,6 @@ import { MOCK_LOCATIONS } from '@/lib/locations';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const VEHICLE_TYPES = [
-  { type: 'auto', name: 'Auto', icon: 'rickshaw' as const, capacity: 'Up to 200kg', price: 'From ₹50' },
-  { type: 'tempo', name: 'Tempo', icon: 'van-utility' as const, capacity: 'Up to 1000kg', price: 'From ₹150' },
-  { type: 'truck', name: 'Truck', icon: 'truck' as const, capacity: '1000kg+', price: 'From ₹300' },
-];
-
 const FLOATING_PINS = [
   { top: 90, left: 40, delay: 0, size: 16 },
   { top: 160, left: SCREEN_WIDTH - 70, delay: 300, size: 14 },
@@ -188,7 +182,6 @@ export default function CustomerHomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const bannerAnim = useRef(new Animated.Value(-100)).current;
-  const cardAnims = useRef(VEHICLE_TYPES.map(() => new Animated.Value(0))).current;
   const searchGlowAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -225,17 +218,6 @@ export default function CustomerHomeScreen() {
       })
     );
     Animated.stagger(200, wordAnimations).start();
-
-    const cardAnimations = cardAnims.map((anim, index) =>
-      Animated.spring(anim, {
-        toValue: 1,
-        tension: 80,
-        friction: 8,
-        delay: 200 + index * 120,
-        useNativeDriver: true,
-      })
-    );
-    Animated.stagger(120, cardAnimations).start();
 
     Animated.loop(
       Animated.sequence([
@@ -477,57 +459,6 @@ export default function CustomerHomeScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          <View style={styles.vehicleSection}>
-            <Text style={styles.vehicleSectionTitle}>Choose your ride</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.vehicleList}
-            >
-              {VEHICLE_TYPES.map((vehicle, index) => (
-                <Animated.View
-                  key={vehicle.type}
-                  style={[
-                    styles.vehicleCard,
-                    {
-                      opacity: cardAnims[index],
-                      transform: [
-                        {
-                          translateY: cardAnims[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [40, 0],
-                          }),
-                        },
-                        {
-                          scale: cardAnims[index].interpolate({
-                            inputRange: [0, 0.5, 1],
-                            outputRange: [0.85, 1.03, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={styles.vehicleCardInner}
-                    onPress={() => router.push('/customer/new-booking' as any)}
-                  >
-                    <View style={styles.vehicleIconContainer}>
-                      <MaterialCommunityIcons
-                        name={vehicle.icon}
-                        size={32}
-                        color={Colors.primary}
-                      />
-                    </View>
-                    <Text style={styles.vehicleName}>{vehicle.name}</Text>
-                    <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
-                    <Text style={styles.vehiclePrice}>{vehicle.price}</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-            </ScrollView>
-          </View>
-
           <View style={styles.quickLocations}>
             <Text style={styles.quickLocationsTitle}>Popular locations</Text>
             <ScrollView
@@ -757,58 +688,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
     color: Colors.textSecondary,
-  },
-  vehicleSection: {
-    marginBottom: 16,
-  },
-  vehicleSectionTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  vehicleList: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  vehicleCard: {
-    width: (SCREEN_WIDTH - 64) / 3,
-    minWidth: 110,
-  },
-  vehicleCardInner: {
-    backgroundColor: Colors.background,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  vehicleIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  vehicleName: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  vehicleCapacity: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textTertiary,
-    marginBottom: 6,
-  },
-  vehiclePrice: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
   },
   quickLocations: {
     paddingHorizontal: 0,
