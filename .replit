@@ -77,5 +77,5 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
-MONGODB_URI = "mongodb+srv://raza:Raza%409926@raza.4snf3fg.mongodb.net/?appName=raza"
+MONGODB_URI = "mongodb+srv://raza:MdRazaChouhan@raza.4snf3fg.mongodb.net/transportgo?retryWrites=true&w=majority&appName=raza"
 EXPO_PUBLIC_APP_MODE = "driver"
