@@ -110,13 +110,82 @@ header.scrolled{background:rgba(10,22,40,0.98);box-shadow:0 4px 30px rgba(0,0,0,
 
 .feature-card:hover{transform:translateY(-6px) scale(1.02)!important;border-color:rgba(0,201,167,0.4);box-shadow:0 8px 32px rgba(0,201,167,0.1)}
 
+@media(max-width:1024px){
+.container{padding:0 20px}
+.app-cards{max-width:600px}
+.pricing-grid{max-width:700px}
+}
+
 @media(max-width:768px){
+.hero{padding:110px 0 40px}
 .hero h1{font-size:32px}
-.hero p{font-size:16px}
-.app-cards{grid-template-columns:1fr;max-width:360px}
-.features-grid{grid-template-columns:1fr}
-.pricing-grid{grid-template-columns:1fr;max-width:320px}
+.hero p{font-size:16px;margin-bottom:28px}
+.hero-logo img{width:64px;height:64px;border-radius:16px;padding:6px}
+.app-cards{grid-template-columns:1fr;max-width:400px;gap:16px}
+.app-card{padding:28px 22px}
+.app-card-icon{width:60px;height:60px;border-radius:14px}
+.app-card h3{font-size:18px}
+.app-card p{font-size:13px;margin-bottom:18px}
+.app-card-btn{padding:10px 22px;font-size:14px}
+.features-grid{grid-template-columns:1fr;gap:16px}
+.feature-card{padding:24px 20px}
+.pricing-grid{grid-template-columns:1fr;max-width:320px;gap:16px}
+.pricing-card{padding:22px 20px}
+.pricing-card .price{font-size:24px}
+.section-title{font-size:26px}
+.section-sub{font-size:14px;margin-bottom:32px}
 .chooser-title{font-size:22px}
+.chooser-sub{font-size:14px;margin-bottom:28px}
+.app-chooser{padding:10px 0 50px}
+.features{padding:40px 0 50px}
+.pricing-section{padding:40px 0 50px}
+footer p{font-size:12px}
+}
+
+@media(max-width:480px){
+.container{padding:0 16px}
+.header-inner{padding:0 16px}
+.logo{font-size:18px;gap:8px}
+.logo-img{width:30px;height:30px;border-radius:6px;padding:2px}
+.admin-link{font-size:12px;padding:5px 12px;border-radius:6px}
+header{padding:14px 0}
+.hero{padding:90px 0 30px}
+.hero h1{font-size:26px;margin-bottom:10px}
+.hero p{font-size:14px;margin-bottom:24px}
+.hero-badge{font-size:11px;padding:5px 12px;margin-bottom:16px}
+.hero-logo img{width:56px;height:56px;border-radius:14px;padding:5px}
+.hero-logo{margin-bottom:14px}
+.app-cards{max-width:100%}
+.app-card{padding:24px 18px;border-radius:16px}
+.app-card-badge{font-size:10px;padding:3px 8px}
+.app-card-icon{width:52px;height:52px;border-radius:12px;margin-bottom:14px}
+.app-card h3{font-size:17px}
+.app-card p{font-size:12px;margin-bottom:16px}
+.app-card-btn{padding:10px 20px;font-size:13px;border-radius:10px}
+.section-title{font-size:22px}
+.section-sub{font-size:13px;margin-bottom:24px}
+.chooser-title{font-size:20px}
+.feature-card{padding:20px 16px;border-radius:12px}
+.feature-icon{width:48px;height:48px;border-radius:12px;margin-bottom:14px}
+.feature-icon svg{width:24px;height:24px}
+.feature-card h3{font-size:16px}
+.feature-card p{font-size:13px}
+.pricing-card{padding:20px 16px;border-radius:12px}
+.pricing-card .vehicle-icon{font-size:28px;margin-bottom:8px}
+.pricing-card h3{font-size:16px}
+.pricing-card .price{font-size:22px;margin:8px 0 2px}
+.pricing-card .per-km{font-size:13px;margin-bottom:8px}
+.pricing-card .capacity{font-size:12px;padding:3px 10px}
+}
+
+@media(max-width:360px){
+.hero h1{font-size:22px}
+.hero p{font-size:13px}
+.logo{font-size:16px}
+.app-card{padding:20px 14px}
+.app-card h3{font-size:16px}
+.app-card-btn{padding:8px 16px;font-size:12px}
+.section-title{font-size:20px}
 }
 </style>
 </head>
