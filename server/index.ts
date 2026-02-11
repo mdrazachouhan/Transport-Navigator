@@ -201,7 +201,7 @@ function configureExpoAndLanding(app: express.Application) {
       return next();
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
+    if (req.path !== "/" && req.path !== "/manifest" && req.path !== "/customer" && req.path !== "/driver") {
       return next();
     }
 
@@ -217,6 +217,49 @@ function configureExpoAndLanding(app: express.Application) {
         landingPageTemplate,
         appName,
       });
+    }
+
+    if (req.path === "/customer" || req.path === "/driver") {
+      const mode = req.path === "/customer" ? "customer" : "driver";
+      const forwardedProto = req.header("x-forwarded-proto");
+      const protocol = forwardedProto || req.protocol || "https";
+      const forwardedHost = req.header("x-forwarded-host");
+      const host = forwardedHost || req.get("host");
+      const expoPort = 8081;
+      const expoHost = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`.replace(/:5000$/, '')
+        : `http://localhost:${expoPort}`;
+      const redirectUrl = `${expoHost}:${expoPort}?mode=${mode}`;
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${appName} - ${mode === 'customer' ? 'Customer' : 'Driver'} App</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A1628;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}
+.wrap{max-width:400px}.icon{width:80px;height:80px;border-radius:20px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center}
+.icon.customer{background:rgba(27,110,243,0.15)}.icon.driver{background:rgba(0,201,167,0.15)}
+.icon svg{width:40px;height:40px}h1{font-size:28px;margin-bottom:12px}p{color:rgba(255,255,255,0.6);margin-bottom:32px;line-height:1.6}
+.info-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;margin-bottom:24px;text-align:left}
+.info-card h3{font-size:16px;margin-bottom:12px;color:rgba(255,255,255,0.9)}.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.step-num{width:24px;height:24px;border-radius:50%;background:${mode === 'customer' ? 'rgba(27,110,243,0.2)' : 'rgba(0,201,167,0.2)'};color:${mode === 'customer' ? '#1B6EF3' : '#00C9A7'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.step-text{font-size:14px;color:rgba(255,255,255,0.7);line-height:1.4}
+.env-badge{display:inline-block;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;font-size:13px;font-family:monospace;color:${mode === 'customer' ? '#1B6EF3' : '#00C9A7'}}
+.back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.5);font-size:14px;margin-top:16px;text-decoration:none;transition:color 0.3s}.back:hover{color:#fff}
+</style></head><body><div class="wrap">
+<div class="icon ${mode}">
+<svg viewBox="0 0 24 24" fill="none" stroke="${mode === 'customer' ? '#1B6EF3' : '#00C9A7'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${mode === 'customer' ? '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' : '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'}</svg>
+</div>
+<h1>${appName} ${mode === 'customer' ? 'Customer' : 'Driver'}</h1>
+<p>To use the ${mode === 'customer' ? 'Customer' : 'Driver'} App on your phone, follow these steps:</p>
+<div class="info-card">
+<h3>How to Open on Phone</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Install <strong>Expo Go</strong> app from Play Store / App Store (free)</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Set app mode environment variable to:<br><span class="env-badge">EXPO_PUBLIC_APP_MODE=${mode}</span></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Scan the QR code from the Replit URL bar menu</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">The ${mode === 'customer' ? 'Customer' : 'Driver'} App will open in Expo Go</div></div>
+</div>
+<a href="/" class="back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back to Home</a>
+</div></body></html>`;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(html);
     }
 
     next();
