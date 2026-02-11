@@ -245,7 +245,7 @@ function configureExpoAndLanding(app: express.Application) {
 .back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.5);font-size:14px;margin-top:16px;text-decoration:none;transition:color 0.3s}.back:hover{color:#fff}
 </style></head><body><div class="wrap">
 <div class="icon ${mode}">
-<svg viewBox="0 0 24 24" fill="none" stroke="${mode === 'customer' ? '#1B6EF3' : '#00C9A7'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${mode === 'customer' ? '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' : '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'}</svg>
+<img src="/assets/images/logo.png" alt="${appName}" style="width:50px;height:50px;object-fit:contain;">
 </div>
 <h1>${appName} ${mode === 'customer' ? 'Customer' : 'Driver'}</h1>
 <p>To use the ${mode === 'customer' ? 'Customer' : 'Driver'} App on your phone, follow these steps:</p>

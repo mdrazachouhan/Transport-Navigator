@@ -18,6 +18,8 @@ header{padding:20px 0;position:fixed;top:0;left:0;right:0;z-index:100;background
 .hero{padding:140px 0 60px;text-align:center}
 .hero-badge{display:inline-block;background:rgba(27,110,243,0.15);color:#1B6EF3;font-size:13px;font-weight:600;padding:6px 16px;border-radius:20px;margin-bottom:24px;border:1px solid rgba(27,110,243,0.3)}
 .hero h1{font-size:48px;font-weight:800;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,#00C9A7 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-logo{margin-bottom:20px;opacity:0;animation:fadeInUp 0.8s ease forwards;animation-delay:0s}
+.hero-logo img{width:80px;height:80px;border-radius:20px;background:#fff;padding:8px;box-shadow:0 4px 24px rgba(27,110,243,0.3)}
 .hero p{font-size:18px;color:rgba(255,255,255,0.7);max-width:500px;margin:0 auto 40px}
 
 .app-chooser{padding:20px 0 80px}
@@ -122,7 +124,7 @@ header.scrolled{background:rgba(10,22,40,0.98);box-shadow:0 4px 30px rgba(0,0,0,
 <header>
 <div class="header-inner">
 <div class="logo">
-<img src="/assets/logo.png" alt="My Load 24" class="logo-img" onerror="this.style.display='none'">
+<img src="/assets/images/logo.png" alt="My Load 24" class="logo-img" onerror="this.style.display='none'">
 APP_NAME_PLACEHOLDER
 </div>
 <a href="/admin" class="admin-link">Admin Panel</a>
@@ -131,6 +133,7 @@ APP_NAME_PLACEHOLDER
 
 <section class="hero">
 <div class="container">
+<div class="hero-logo"><img src="/assets/images/logo.png" alt="My Load 24"></div>
 <div class="hero-badge">Goods Transport in Indore</div>
 <h1>APP_NAME_PLACEHOLDER</h1>
 <p>Fast &amp; reliable goods transport - Book Auto, Tempo, or Truck in Indore</p>
