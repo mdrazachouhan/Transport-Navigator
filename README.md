@@ -297,6 +297,104 @@ my-load-24/
 
 ---
 
+## Building APK Files (Android)
+
+You can build separate APK files for the **Customer App** and **Driver App**. This requires EAS (Expo Application Services) on your local machine.
+
+### Prerequisites for APK Build
+
+1. **Expo Account** — Create free at [expo.dev](https://expo.dev)
+2. **EAS CLI** — Install globally:
+   ```bash
+   npm install -g eas-cli
+   ```
+3. **Login to Expo:**
+   ```bash
+   npx eas login
+   ```
+
+### Step 1: Create `eas.json`
+
+Create a file called `eas.json` in the project root:
+
+```json
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
+```
+
+### Step 2: Build Customer APK
+
+```bash
+# Linux / Mac
+EXPO_PUBLIC_APP_MODE=customer eas build --platform android --profile preview
+
+# Windows (PowerShell)
+$env:EXPO_PUBLIC_APP_MODE="customer"; eas build --platform android --profile preview
+
+# Windows (CMD)
+set EXPO_PUBLIC_APP_MODE=customer && eas build --platform android --profile preview
+```
+
+### Step 3: Build Driver APK
+
+```bash
+# Linux / Mac
+EXPO_PUBLIC_APP_MODE=driver eas build --platform android --profile preview
+
+# Windows (PowerShell)
+$env:EXPO_PUBLIC_APP_MODE="driver"; eas build --platform android --profile preview
+
+# Windows (CMD)
+set EXPO_PUBLIC_APP_MODE=driver && eas build --platform android --profile preview
+```
+
+### Step 4: Download APK
+
+After the build completes (takes 5-15 minutes), you will get a download link in the terminal. You can also find your builds at:
+
+```
+https://expo.dev/accounts/YOUR_USERNAME/projects/my-load-24/builds
+```
+
+Download the APK file and install it on any Android device.
+
+### Quick Reference
+
+| App | Command (Linux/Mac) |
+|-----|-------------------|
+| Customer APK | `EXPO_PUBLIC_APP_MODE=customer eas build --platform android --profile preview` |
+| Driver APK | `EXPO_PUBLIC_APP_MODE=driver eas build --platform android --profile preview` |
+| Customer AAB (Play Store) | `EXPO_PUBLIC_APP_MODE=customer eas build --platform android --profile production` |
+| Driver AAB (Play Store) | `EXPO_PUBLIC_APP_MODE=driver eas build --platform android --profile production` |
+
+### Important Notes
+
+- **Preview profile** builds an `.apk` file (direct install on phone)
+- **Production profile** builds an `.aab` file (for Google Play Store upload)
+- Each build takes approximately 5-15 minutes on Expo's cloud servers
+- Free Expo account allows 30 builds per month
+- The `EXPO_PUBLIC_APP_MODE` variable controls which app is built — each APK is a completely separate app with its own branding, screens, and login flow
+- Make sure your `.env` file has `MONGODB_URI` and `SESSION_SECRET` set before building
+- The backend server must be running and accessible from the internet for the app to work
+
+---
+
 ## Development Notes
 
 - **OTP is mock**: In development mode, OTP is returned in the API response so you don't need SMS service
