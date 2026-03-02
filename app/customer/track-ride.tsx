@@ -160,22 +160,33 @@ export default function TrackRideScreen() {
   }, [bookingId]);
 
   const booking = getBookingById(bookingId as string);
-
   const prevStatusRef = useRef<string | undefined>(undefined);
+  const isMounted = useRef(true);
+
   useEffect(() => {
-    if (booking && booking.status !== prevStatusRef.current) {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!booking || !isMounted.current) return;
+
+    // Track status transitions
+    if (booking.status !== prevStatusRef.current) {
       if (booking.status === 'in_progress' && prevStatusRef.current === 'accepted') {
-        addNotification('Trip Started', 'Your goods are on the way to the destination.', 'booking');
+        addNotification('Trip Started', 'Your transportation partner is now on the move.', 'booking');
       } else if (booking.status === 'completed' && prevStatusRef.current && prevStatusRef.current !== 'completed') {
-        addNotification('Delivery Complete', `Your delivery is complete.`, 'booking');
+        addNotification('Job Finalized', `The delivery job has been successfully closed.`, 'booking');
+
         if (!hasNavigated.current) {
           hasNavigated.current = true;
-          console.log('[TRACK-RIDE] Ride completed. Navigating to rating...');
-          const t = setTimeout(() => {
-            // Using a plain string to avoid object-related navigation issues
-            router.replace(`/customer/rate-ride?bookingId=${booking.id}` as any);
-          }, 500);
-          return () => clearTimeout(t);
+          // Defer navigation to ensure state stability
+          const timeoutId = setTimeout(() => {
+            if (isMounted.current) {
+              router.replace(`/customer/rate-ride?bookingId=${booking.id}` as any);
+            }
+          }, 400);
+          return () => clearTimeout(timeoutId);
         }
       }
       prevStatusRef.current = booking.status;

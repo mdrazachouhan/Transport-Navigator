@@ -156,7 +156,7 @@ export default function CustomerHomeScreen() {
         >
           <TouchableOpacity
             className="flex-row items-center justify-between bg-surface rounded-[20px] p-4 shadow-2xl border border-primary/10"
-            onPress={() => router.push({ pathname: '/customer/track-ride' as any, params: { bookingId: activeBooking.id } })}
+            onPress={() => router.push(`/customer/track-ride?bookingId=${activeBooking.id}` as any)}
           >
             <View className="flex-row items-center">
               <PulsingDot />

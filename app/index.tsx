@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Platform, Alert, KeyboardAvoidingView, ScrollView, ActivityIndicator, Dimensions, Easing, Image, StatusBar } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -108,21 +108,21 @@ export default function LoginScreen() {
     ).start();
   }, []);
 
+  const currentPath = usePathname();
+
   useEffect(() => {
-    if (!authLoading && isAuthenticated && user) {
-      // Use a small timeout to ensure navigation context is fully ready
+    // Only attempt navigation if at root, authenticated and not loading
+    if (currentPath === '/' && !authLoading && isAuthenticated && user) {
       const timeoutId = setTimeout(() => {
         if (!user.name || user.name.trim() === '') {
           router.replace({ pathname: '/register' as any, params: { phone: user.phone, role: appMode } });
-        } else if (appMode === 'customer') {
-          router.replace('/customer/home' as any);
         } else {
-          router.replace('/driver/dashboard' as any);
+          router.replace(appMode === 'customer' ? '/customer/home' : '/driver/dashboard');
         }
-      }, 100);
+      }, 200);
       return () => clearTimeout(timeoutId);
     }
-  }, [authLoading, isAuthenticated, user, appMode]);
+  }, [authLoading, isAuthenticated, user, appMode, currentPath]);
 
   const handleSendOtp = async () => {
     if (phone.length < 10) {

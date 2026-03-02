@@ -423,7 +423,7 @@ export default function DriverDashboardScreen() {
         {activeBooking && (
           <AnimatedActiveCard
             booking={activeBooking}
-            onPress={() => router.push({ pathname: '/driver/active-ride' as any, params: { bookingId: activeBooking.id } })}
+            onPress={() => router.push(`/driver/active-ride?bookingId=${activeBooking.id}` as any)}
           />
         )}
 

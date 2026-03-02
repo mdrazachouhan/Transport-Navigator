@@ -256,11 +256,8 @@ export default function NewBookingScreen() {
     setLoading(false);
     if (result.success && result.booking) {
       const bookingId = result.booking.id;
-      // Use direct replace to the tracking screen with the booking params
-      router.replace({
-        pathname: '/customer/track-ride' as any,
-        params: { bookingId }
-      });
+      // Using a simple URL string for more stable expo-router navigation
+      router.replace(`/customer/track-ride?bookingId=${bookingId}` as any);
     } else {
       console.error('Booking Creation Error:', result.error);
       Alert.alert('Booking Error', result.error || 'Something went wrong. Please check your network and try again.');
