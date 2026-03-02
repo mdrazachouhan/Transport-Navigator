@@ -244,6 +244,13 @@ class MongoStorage {
     return docs.map(docToBooking);
   }
 
+  async getBookingsByUser(userId: string): Promise<Booking[]> {
+    const docs = await BookingModel.find({
+      $or: [{ customerId: userId }, { driverId: userId }]
+    }).sort({ createdAt: -1 });
+    return docs.map(docToBooking);
+  }
+
   async getPendingBookings(vehicleType?: string): Promise<Booking[]> {
     const query: any = { status: 'pending' };
     if (vehicleType) query.vehicleType = vehicleType;

@@ -27,10 +27,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
     console.log(`[VERIFY] ${phone}: OTP verified successfully`);
     let user = await storage.getUserByPhone(phone);
     const isNew = !user;
+    const normalizedRole = (role || 'customer').toLowerCase().trim() as any;
+
     if (!user) {
-        user = await storage.createUser({ name: '', phone, role: role || 'customer', isOnline: false, isApproved: true });
-    } else if (role && role !== user.role && user.role !== 'admin') {
-        user = (await storage.updateUser(user.id, { role, isApproved: true }))!;
+        user = await storage.createUser({ name: '', phone, role: normalizedRole, isOnline: false, isApproved: true });
+    } else if (normalizedRole && normalizedRole !== user.role && user.role !== 'admin') {
+        user = (await storage.updateUser(user.id, { role: normalizedRole, isApproved: true }))!;
     }
     const token = generateToken({ userId: user.id, phone: user.phone, role: user.role });
     res.json({ success: true, token, user, isNew });
@@ -40,12 +42,13 @@ export const register = async (req: Request, res: Response) => {
     const { phone, name, role, vehicleType, vehicleNumber, licenseNumber } = req.body;
     if (!phone || !name) return res.status(400).json({ error: 'Phone and name required' });
     let user = await storage.getUserByPhone(phone);
+    const normalizedRole = (role || 'customer').toLowerCase().trim() as any;
     if (user) {
-        user = (await storage.updateUser(user.id, { name, role: role || user.role, vehicleType, vehicleNumber, licenseNumber, isApproved: true }))!;
+        user = (await storage.updateUser(user.id, { name, role: normalizedRole, vehicleType, vehicleNumber, licenseNumber, isApproved: true }))!;
     } else {
         user = await storage.createUser({
-            name, phone, role: role || 'customer', vehicleType, vehicleNumber, licenseNumber,
-            isOnline: false, isApproved: true, rating: role === 'driver' ? 4.0 : undefined,
+            name, phone, role: normalizedRole, vehicleType, vehicleNumber, licenseNumber,
+            isOnline: false, isApproved: true, rating: normalizedRole === 'driver' ? 4.0 : undefined,
             totalTrips: 0, totalEarnings: 0,
         });
     }

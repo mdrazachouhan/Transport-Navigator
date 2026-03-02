@@ -233,7 +233,7 @@ export default function TrackRideScreen() {
         <View className="mt-6 px-8 flex-row items-center justify-between">
           <View>
             <Text className="text-[9px] font-inter-bold text-white/40 uppercase tracking-[2px] mb-1.5">Reference ID</Text>
-            <Text className="text-xl font-inter-bold text-surface">#{bookingId?.slice(-6).toUpperCase()}</Text>
+            <Text className="text-xl font-inter-bold text-surface">#{String(bookingId || '').slice(-6).toUpperCase()}</Text>
           </View>
           <View className="w-12 h-12 bg-white/10 rounded-xl items-center justify-center border border-white/10">
             <MaterialCommunityIcons name="radar" size={24} color={Colors.accent} />

@@ -38,8 +38,10 @@ export function roleMiddleware(role: string | string[]) {
         const user = (req as any).user as JwtPayload;
         if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-        const allowedRoles = Array.isArray(role) ? role : [role];
-        if (user.role === 'admin' || allowedRoles.includes(user.role)) {
+        const allowedRoles = Array.isArray(role) ? role.map(r => r.toLowerCase().trim()) : [role.toLowerCase().trim()];
+        const userRole = (user.role || '').toLowerCase().trim();
+
+        if (userRole === 'admin' || allowedRoles.includes(userRole)) {
             return next();
         }
 

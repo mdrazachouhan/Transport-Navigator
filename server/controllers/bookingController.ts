@@ -73,9 +73,12 @@ export const createBooking = (io: any) => async (req: Request, res: Response) =>
 export const getBookings = async (req: Request, res: Response) => {
     const { userId, role } = (req as any).user as JwtPayload;
     let bookings;
-    if (role === 'customer') bookings = await storage.getBookingsByCustomer(userId);
-    else if (role === 'driver') bookings = await storage.getBookingsByDriver(userId);
-    else bookings = await storage.getAllBookings();
+    if (role === 'admin') {
+        bookings = await storage.getAllBookings();
+    } else {
+        // Universal fetch for both customers and drivers to handle role overlaps and testing safely
+        bookings = await storage.getBookingsByUser(userId);
+    }
     res.json({ bookings });
 };
 
