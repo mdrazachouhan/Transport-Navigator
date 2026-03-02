@@ -15,8 +15,8 @@ export default function DriverSettingsScreen() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const topInset = insets.top + webTop;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   const handleClearNotifications = () => {
     Alert.alert('Clear Notifications', 'Are you sure you want to clear all notifications?', [
@@ -26,66 +26,108 @@ export default function DriverSettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.surface} />
+    <View className="flex-1 bg-[#FDFDFD]">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-10 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center px-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <View style={{ width: 40 }} />
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Preferences</Text>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={styles.sectionLabel}>Notifications</Text>
-        <View style={styles.card}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
-              <Text style={styles.settingText}>Push Notifications</Text>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: bottomInset + 40 }}
+        showsVerticalScrollIndicator={false}
+        className="flex-1 -mt-5"
+      >
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-3 ml-1">Notifications</Text>
+        <View className="bg-white rounded-2xl border border-gray-50 overflow-hidden mb-6 shadow-sm">
+          <View className="flex-row items-center justify-between py-3.5 px-4 border-b border-gray-50">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-lg bg-primary/5 items-center justify-center mr-3">
+                <Ionicons name="notifications-outline" size={16} color={Colors.primary} />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-text">Push Notifications</Text>
             </View>
-            <Switch value={pushEnabled} onValueChange={setPushEnabled} trackColor={{ false: Colors.border, true: Colors.primaryLight }} thumbColor={pushEnabled ? Colors.primary : Colors.textTertiary} />
+            <Switch
+              value={pushEnabled}
+              onValueChange={setPushEnabled}
+              trackColor={{ false: '#E5E7EB', true: Colors.primaryLight }}
+              thumbColor={pushEnabled ? Colors.primary : '#9CA3AF'}
+              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+            />
           </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="volume-high-outline" size={20} color={Colors.primary} />
-              <Text style={styles.settingText}>Sound</Text>
+          <View className="flex-row items-center justify-between py-3.5 px-4">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-lg bg-primary/5 items-center justify-center mr-3">
+                <Ionicons name="volume-high-outline" size={16} color={Colors.primary} />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-text">Sound</Text>
             </View>
-            <Switch value={soundEnabled} onValueChange={setSoundEnabled} trackColor={{ false: Colors.border, true: Colors.primaryLight }} thumbColor={soundEnabled ? Colors.primary : Colors.textTertiary} />
+            <Switch
+              value={soundEnabled}
+              onValueChange={setSoundEnabled}
+              trackColor={{ false: '#E5E7EB', true: Colors.primaryLight }}
+              thumbColor={soundEnabled ? Colors.primary : '#9CA3AF'}
+              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+            />
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>Privacy</Text>
-        <View style={styles.card}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="location-outline" size={20} color={Colors.primary} />
-              <Text style={styles.settingText}>Share Location</Text>
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-3 ml-1">Privacy</Text>
+        <View className="bg-white rounded-2xl border border-gray-50 overflow-hidden mb-6 shadow-sm">
+          <View className="flex-row items-center justify-between py-3.5 px-4">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-lg bg-primary/5 items-center justify-center mr-3">
+                <Ionicons name="location-outline" size={16} color={Colors.primary} />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-text">Share Location</Text>
             </View>
-            <Switch value={locationEnabled} onValueChange={setLocationEnabled} trackColor={{ false: Colors.border, true: Colors.primaryLight }} thumbColor={locationEnabled ? Colors.primary : Colors.textTertiary} />
+            <Switch
+              value={locationEnabled}
+              onValueChange={setLocationEnabled}
+              trackColor={{ false: '#E5E7EB', true: Colors.primaryLight }}
+              thumbColor={locationEnabled ? Colors.primary : '#9CA3AF'}
+              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+            />
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>Data</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.settingRow} onPress={handleClearNotifications} activeOpacity={0.7}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="trash-outline" size={20} color={Colors.danger} />
-              <Text style={[styles.settingText, { color: Colors.danger }]}>Clear All Notifications</Text>
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-3 ml-1">Data Management</Text>
+        <View className="bg-white rounded-2xl border border-gray-50 overflow-hidden mb-6 shadow-sm">
+          <TouchableOpacity
+            className="flex-row items-center justify-between py-4 px-4"
+            onPress={handleClearNotifications}
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-lg bg-danger/5 items-center justify-center mr-3">
+                <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-danger">Clear All Notifications</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+            <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionLabel}>About</Text>
-        <View style={styles.card}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="information-circle-outline" size={20} color={Colors.textSecondary} />
-              <Text style={styles.settingText}>App Version</Text>
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-3 ml-1">App Details</Text>
+        <View className="bg-white rounded-2xl border border-gray-50 overflow-hidden shadow-sm">
+          <View className="flex-row items-center justify-between py-4 px-4">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-lg bg-gray-50 items-center justify-center mr-3">
+                <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+              </View>
+              <Text className="text-[14px] font-inter-semibold text-text">Version</Text>
             </View>
-            <Text style={styles.settingValue}>1.0.0</Text>
+            <Text className="text-[13px] font-inter-bold text-text-tertiary">1.0.0 (RT-LIVE)</Text>
           </View>
         </View>
       </ScrollView>
@@ -93,16 +135,4 @@ export default function DriverSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  sectionLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 20, marginLeft: 4 },
-  card: { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' },
-  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.divider },
-  settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingText: { fontSize: 15, fontFamily: 'Inter_500Medium', color: Colors.text },
-  settingValue: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textTertiary },
-});
+const styles = StyleSheet.create({});

@@ -1,3 +1,4 @@
+import '../global.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,22 +8,25 @@ import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { BookingProvider } from '@/contexts/BookingContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { cssInterop } from 'nativewind';
+import { Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+
+cssInterop(Animated.View, { className: 'style' });
+cssInterop(Animated.Text, { className: 'style' });
+cssInterop(LinearGradient, { className: 'style' });
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="customer" />
-      <Stack.Screen name="driver" />
-    </Stack>
+    <Stack screenOptions={{ headerShown: false }} />
   );
 }
 
@@ -37,7 +41,7 @@ export default function RootLayout() {
         Inter_600SemiBold,
         Inter_700Bold,
       });
-      fontPromise.catch(() => {});
+      fontPromise.catch(() => { });
       try {
         await Promise.race([
           fontPromise,
@@ -78,20 +82,22 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <ErrorBoundary>
+    <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <AuthProvider>
               <BookingProvider>
                 <NotificationProvider>
-                  <RootLayoutNav />
+                  <ErrorBoundary>
+                    <RootLayoutNav />
+                  </ErrorBoundary>
                 </NotificationProvider>
               </BookingProvider>
             </AuthProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
-    </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

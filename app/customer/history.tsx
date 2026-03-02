@@ -1,26 +1,18 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Platform, ActivityIndicator, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useBookings, type BookingData } from '@/contexts/BookingContext';
 
-const statusColors: Record<string, string> = {
-  pending: Colors.warning,
-  accepted: Colors.primary,
-  in_progress: Colors.accent,
-  completed: Colors.success,
-  cancelled: Colors.danger,
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending',
-  accepted: 'Accepted',
-  in_progress: 'In Transit',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
+const statusConfig: Record<string, { color: string; label: string; icon: string }> = {
+  pending: { color: Colors.warning, label: 'Finding Driver', icon: 'hourglass-outline' },
+  accepted: { color: Colors.primary, label: 'Trip Confirmed', icon: 'checkmark-circle-outline' },
+  in_progress: { color: Colors.accent, label: 'On the Way', icon: 'navigate-outline' },
+  completed: { color: Colors.success, label: 'Delivered', icon: 'shield-check-outline' },
+  cancelled: { color: Colors.danger, label: 'Cancelled', icon: 'close-circle-outline' },
 };
 
 const vehicleIcons: Record<string, any> = {
@@ -30,74 +22,81 @@ const vehicleIcons: Record<string, any> = {
 };
 
 function AnimatedBookingCard({ booking, onPress, index }: { booking: BookingData; onPress: () => void; index: number }) {
-  const color = statusColors[booking.status] || Colors.textSecondary;
-  const slideAnim = useRef(new Animated.Value(40)).current;
+  const config = statusConfig[booking.status] || { color: Colors.textSecondary, label: booking.status, icon: 'help-circle-outline' };
+  const slideAnim = useRef(new Animated.Value(50)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
-    const delay = index * 80;
+    const delay = index * 100;
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 400, delay, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 400, delay, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, delay, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 600, delay, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 8, delay, useNativeDriver: true })
     ]).start();
   }, []);
-
-  function handlePressIn() {
-    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
-  }
-  function handlePressOut() {
-    Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start();
-  }
 
   return (
     <Animated.View style={{ transform: [{ translateY: slideAnim }, { scale: scaleAnim }], opacity: opacityAnim }}>
       <TouchableOpacity
-        style={styles.card}
+        className="bg-white rounded-2xl mb-4 p-4 border border-gray-50 shadow-xl shadow-black/5"
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1}
+        activeOpacity={0.8}
       >
-        <LinearGradient
-          colors={[color, color + '88']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.cardAccentLine}
-        />
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <View style={styles.vehicleWrap}>
-              <MaterialCommunityIcons name={vehicleIcons[booking.vehicleType] || 'truck'} size={22} color={Colors.primary} />
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center">
+            <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3.5 border border-gray-50 bg-gray-50/50`}>
+              <MaterialCommunityIcons name={vehicleIcons[booking.vehicleType] || 'truck'} size={22} color={Colors.text} />
             </View>
-            <View style={styles.cardHeaderInfo}>
-              <Text style={styles.cardDate}>{new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: color + '18' }]}>
-                <View style={[styles.statusGlow, { backgroundColor: color, shadowColor: color }]} />
-                <Text style={[styles.statusText, { color }]}>{statusLabels[booking.status]}</Text>
+            <View>
+              <Text className="text-sm font-inter-bold text-text tracking-tight">{booking.vehicleType.toUpperCase()}</Text>
+              <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">
+                {new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            </View>
+          </View>
+          <View className="items-end">
+            <Text className="text-lg font-inter-bold text-text">₹{booking.totalPrice}</Text>
+            <View className="flex-row items-center mt-1">
+              <View className="w-1.5 h-1.5 rounded-full mr-2" style={{ backgroundColor: config.color }} />
+              <Text className="text-[9px] font-inter-bold uppercase tracking-widest" style={{ color: config.color }}>{config.label}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View className="bg-gray-50/50 rounded-xl p-3.5 border border-gray-50 mb-4">
+          <View className="flex-row items-start">
+            <View className="items-center mr-3.5 pt-1">
+              <View className="w-3.5 h-3.5 rounded-full bg-success/20 items-center justify-center">
+                <View className="w-1.5 h-1.5 rounded-full bg-success" />
+              </View>
+              <View className="w-px h-5 bg-gray-200 my-1" />
+              <View className="w-3.5 h-3.5 rounded-full bg-danger/20 items-center justify-center">
+                <View className="w-1.5 h-1.5 rounded-full bg-danger" />
               </View>
             </View>
-            <Text style={styles.priceText}>₹{booking.totalPrice}</Text>
-          </View>
-          <View style={styles.routeInfo}>
-            <View style={styles.routeRow}>
-              <View style={[styles.routeDot, { backgroundColor: Colors.success }]} />
-              <Text style={styles.routeText} numberOfLines={1}>{booking.pickup.name}</Text>
-            </View>
-            <View style={styles.routeLine} />
-            <View style={styles.routeRow}>
-              <View style={[styles.routeDot, { backgroundColor: Colors.danger }]} />
-              <Text style={styles.routeText} numberOfLines={1}>{booking.delivery.name}</Text>
+            <View className="flex-1">
+              <Text className="text-[13px] font-inter-semibold text-text mb-2.5" numberOfLines={1}>{booking.pickup.name}</Text>
+              <Text className="text-[13px] font-inter-semibold text-text" numberOfLines={1}>{booking.delivery.name}</Text>
             </View>
           </View>
-          <View style={styles.cardFooter}>
-            <Text style={styles.distText}>{booking.distance} km</Text>
+        </View>
+
+        <View className="flex-row items-center justify-between px-1">
+          <View className="flex-row items-center space-x-4">
+            <View className="flex-row items-center">
+              <Feather name="navigation" size={12} color={Colors.divider} style={{ marginRight: 6 }} />
+              <Text className="text-[11px] font-inter-bold text-text-secondary">{booking.distance} km</Text>
+            </View>
             {booking.rating ? (
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color={Colors.warning} />
-                <Text style={styles.ratingText}>{booking.rating}</Text>
+              <View className="flex-row items-center ml-4">
+                <Ionicons name="star" size={12} color={Colors.warning} style={{ marginRight: 6 }} />
+                <Text className="text-[11px] font-inter-bold text-text">{booking.rating}</Text>
               </View>
             ) : null}
+          </View>
+          <View className="w-8 h-8 rounded-full bg-gray-50 items-center justify-center">
+            <Ionicons name="chevron-forward" size={16} color={Colors.divider} />
           </View>
         </View>
       </TouchableOpacity>
@@ -106,16 +105,16 @@ function AnimatedBookingCard({ booking, onPress, index }: { booking: BookingData
 }
 
 function EmptyState() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-  }, []);
   return (
-    <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
-      <Ionicons name="document-text-outline" size={48} color={Colors.textTertiary} />
-      <Text style={styles.emptyText}>No bookings yet</Text>
-      <Text style={styles.emptySubtext}>Your booking history will appear here</Text>
-    </Animated.View>
+    <View className="flex-1 items-center justify-center px-10">
+      <View className="w-20 h-20 rounded-full bg-gray-50 items-center justify-center mb-6">
+        <MaterialCommunityIcons name="clipboard-text-off-outline" size={40} color={Colors.divider} />
+      </View>
+      <Text className="text-xl font-inter-bold text-text text-center mb-2">No Journey Found</Text>
+      <Text className="text-[13px] font-inter-medium text-text-tertiary text-center leading-5 px-4">
+        Your travel history is currently empty. Start your first job from the terminal.
+      </Text>
+    </View>
   );
 }
 
@@ -126,8 +125,8 @@ export default function HistoryScreen() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const webBottom = Platform.OS === 'web' ? 34 : 0;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   function handleBookingPress(booking: BookingData) {
     if (['pending', 'accepted', 'in_progress'].includes(booking.status)) {
@@ -138,22 +137,27 @@ export default function HistoryScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + webTop }]}>
+    <View className="flex-1 bg-[#FDFDFD]">
       <LinearGradient
-        colors={[Colors.navyDark, Colors.navy]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-8 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
       >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Booking History</Text>
-        <View style={{ width: 24 }} />
+        <View className="flex-row items-center px-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
+          </TouchableOpacity>
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Trip Logs</Text>
+        </View>
       </LinearGradient>
+
       {loading && bookings.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={Colors.primary} />
+          <Text className="mt-4 text-text-tertiary font-inter-bold text-[10px] uppercase tracking-[3px]">Syncing logs...</Text>
         </View>
       ) : bookings.length === 0 ? (
         <EmptyState />
@@ -164,7 +168,7 @@ export default function HistoryScreen() {
           renderItem={({ item, index }) => (
             <AnimatedBookingCard booking={item} onPress={() => handleBookingPress(item)} index={index} />
           )}
-          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + webBottom + 16 }}
+          contentContainerStyle={{ padding: 24, paddingTop: 32, paddingBottom: bottomInset + 20 }}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -172,31 +176,4 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFFFFF' },
-  card: { backgroundColor: Colors.surface, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row', overflow: 'hidden' },
-  cardAccentLine: { width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
-  cardContent: { flex: 1, padding: 16 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  vehicleWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.primaryLight, justifyContent: 'center', alignItems: 'center' },
-  cardHeaderInfo: { flex: 1, marginLeft: 12 },
-  cardDate: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusGlow: { width: 6, height: 6, borderRadius: 3, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4, elevation: 3 },
-  statusText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  priceText: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
-  routeInfo: { marginLeft: 8 },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  routeDot: { width: 8, height: 8, borderRadius: 4 },
-  routeLine: { width: 1, height: 16, backgroundColor: Colors.border, marginLeft: 3 },
-  routeText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.divider },
-  distText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
-  emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  emptySubtext: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-});
+const styles = StyleSheet.create({});

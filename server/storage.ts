@@ -134,6 +134,7 @@ function docToVehicle(doc: any): VehiclePricing {
 
 class MongoStorage {
   async seedDefaults() {
+    console.log('[SEED] Checking vehicles...');
     const vehicleCount = await VehiclePricingModel.countDocuments();
     if (vehicleCount === 0) {
       await VehiclePricingModel.insertMany([
@@ -144,6 +145,7 @@ class MongoStorage {
       console.log('Seeded default vehicle pricing');
     }
 
+    console.log('[SEED] Checking admin...');
     const adminExists = await UserModel.findOne({ phone: '9999999999', role: 'admin' });
     if (!adminExists) {
       await UserModel.create({
@@ -151,14 +153,17 @@ class MongoStorage {
         phone: '9999999999',
         role: 'admin',
         password: 'admin123',
+        isApproved: true,
       });
       console.log('Seeded default admin user');
     }
 
+    console.log('[SEED] Auto-approving users...');
     const approvedCount = await UserModel.updateMany({ isApproved: { $ne: true } }, { $set: { isApproved: true } });
     if (approvedCount.modifiedCount > 0) {
       console.log(`Auto-approved ${approvedCount.modifiedCount} users`);
     }
+    console.log('[SEED] Done.');
   }
 
   async createUser(data: Omit<User, 'id' | 'createdAt'>): Promise<User> {
@@ -239,8 +244,10 @@ class MongoStorage {
     return docs.map(docToBooking);
   }
 
-  async getPendingBookings(): Promise<Booking[]> {
-    const docs = await BookingModel.find({ status: 'pending' }).sort({ createdAt: -1 });
+  async getPendingBookings(vehicleType?: string): Promise<Booking[]> {
+    const query: any = { status: 'pending' };
+    if (vehicleType) query.vehicleType = vehicleType;
+    const docs = await BookingModel.find(query).sort({ createdAt: -1 });
     return docs.map(docToBooking);
   }
 

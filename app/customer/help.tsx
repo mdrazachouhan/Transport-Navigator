@@ -26,12 +26,20 @@ function FAQItem({ item }: { item: typeof FAQ_ITEMS[0] }) {
   };
 
   return (
-    <TouchableOpacity style={styles.faqCard} onPress={toggle} activeOpacity={0.7}>
-      <View style={styles.faqHeader}>
-        <Text style={styles.faqQuestion}>{item.q}</Text>
+    <TouchableOpacity
+      className="bg-surface rounded-2xl p-4 mb-2 border border-gray-100"
+      onPress={toggle}
+      activeOpacity={0.7}
+    >
+      <View className="flex-row items-center justify-between">
+        <Text className="text-sm font-inter-medium text-text flex-1 mr-2">{item.q}</Text>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textTertiary} />
       </View>
-      {expanded && <Text style={styles.faqAnswer}>{item.a}</Text>}
+      {expanded && (
+        <Text className="text-[13px] font-inter text-text-secondary leading-5 mt-3 pt-3 border-t border-gray-50">
+          {item.a}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -43,19 +51,26 @@ export default function HelpScreen() {
   const topInset = insets.top + webTop;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+    <View className="flex-1 bg-background">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-4 rounded-b-2xl shadow-sm"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center justify-between px-5">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
+          >
             <Ionicons name="arrow-back" size={24} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help</Text>
-          <View style={{ width: 40 }} />
+          <Text className="text-lg font-inter-semibold text-surface">Help</Text>
+          <View className="w-10" />
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <Text className="text-base font-inter-semibold text-text mb-4">Frequently Asked Questions</Text>
         {FAQ_ITEMS.map((item, i) => (
           <FAQItem key={i} item={item} />
         ))}
@@ -64,15 +79,4 @@ export default function HelpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 16 },
-  faqCard: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder },
-  faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  faqQuestion: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1, marginRight: 8 },
-  faqAnswer: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.divider },
-});
+const styles = StyleSheet.create({});

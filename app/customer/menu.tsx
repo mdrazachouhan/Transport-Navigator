@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Animated, Dimensions, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,35 +7,45 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const MENU_ITEMS = [
-  { id: 'profile', label: 'Profile', icon: 'person-outline' as const, iconSet: 'ion', route: '/customer/profile' },
-  { id: 'history', label: 'History', icon: 'time-outline' as const, iconSet: 'ion', route: '/customer/history' },
-  { id: 'notifications', label: 'Notifications', icon: 'notifications-outline' as const, iconSet: 'ion', route: '/customer/notifications' },
-  { id: 'safety', label: 'Safety', icon: 'shield-checkmark-outline' as const, iconSet: 'ion', route: '/customer/safety' },
-  { id: 'settings', label: 'Settings', icon: 'settings-outline' as const, iconSet: 'ion', route: '/customer/settings' },
-  { id: 'help', label: 'Help', icon: 'help-circle-outline' as const, iconSet: 'ion', route: '/customer/help' },
-  { id: 'support', label: 'Support', icon: 'headset-outline' as const, iconSet: 'ion', route: '/customer/support' },
+  { id: 'profile', label: 'My Profile', icon: 'person-outline' as const, color: '#1B6EF3', route: '/customer/profile' },
+  { id: 'history', label: 'Ride History', icon: 'time-outline' as const, color: '#10B981', route: '/customer/history' },
+  { id: 'notifications', label: 'Alerts', icon: 'notifications-outline' as const, color: '#F59E0B', route: '/customer/notifications' },
+  { id: 'safety', label: 'Safety Center', icon: 'shield-checkmark-outline' as const, color: '#EF4444', route: '/customer/safety' },
+  { id: 'settings', label: 'Settings', icon: 'settings-outline' as const, color: '#6366F1', route: '/customer/settings' },
+  { id: 'help', label: 'Help & FAQ', icon: 'help-circle-outline' as const, color: '#EC4899', route: '/customer/help' },
+  { id: 'support', label: 'Connect Support', icon: 'headset-outline' as const, color: '#14B8A6', route: '/customer/support' },
 ];
 
 function AnimatedMenuItem({ item, index, onPress }: { item: typeof MENU_ITEMS[0]; index: number; onPress: () => void }) {
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 300, delay: index * 60, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 300, delay: index * 60, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, delay: index * 80, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 500, delay: index * 80, useNativeDriver: true }),
     ]).start();
   }, []);
 
   return (
-    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateX: slideAnim }] }}>
-      <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-        <View style={styles.menuIconWrap}>
-          <Ionicons name={item.icon as any} size={22} color={Colors.primary} />
+    <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY: slideAnim }] }}>
+      <TouchableOpacity
+        className="flex-row items-center justify-between bg-white mx-5 mb-3 p-4 rounded-[24px] border border-gray-50 shadow-sm"
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View className="flex-row items-center">
+          <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: item.color + '10' }}>
+            <Ionicons name={item.icon as any} size={24} color={item.color} />
+          </View>
+          <Text className="text-base font-inter-bold text-text">{item.label}</Text>
         </View>
-        <Text style={styles.menuLabel}>{item.label}</Text>
-        <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+        <View className="w-8 h-8 rounded-full bg-gray-50 items-center justify-center">
+          <Ionicons name="chevron-forward" size={16} color={Colors.divider} />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -46,77 +56,116 @@ export default function CustomerMenuScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const webBottom = Platform.OS === 'web' ? 34 : 0;
-  const topInset = insets.top + webTop;
-  const bottomInset = insets.bottom + webBottom;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to end your session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          }
+        }
+      ]
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.headerGradient, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.surface} />
+    <View className="flex-1 bg-[#FDFDFD]">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-10 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center px-6 mb-8">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Menu</Text>
-          <View style={{ width: 40 }} />
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Application Hub</Text>
         </View>
-        <View style={styles.profileSection}>
-          <View style={styles.avatarLarge}>
-            <Ionicons name="person" size={32} color={Colors.surface} />
+
+        <View className="flex-row items-center px-8">
+          <View className="w-16 h-16 rounded-2xl bg-white/10 items-center justify-center border border-white/10 shadow-2xl text-center">
+            <LinearGradient
+              colors={['#102238', '#1C2B4A']}
+              className="w-full h-full rounded-2xl items-center justify-center"
+            >
+              <Ionicons name="person" size={28} color={Colors.surface} />
+            </LinearGradient>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.name || 'User'}</Text>
-            <Text style={styles.profilePhone}>{user?.phone || ''}</Text>
+          <View className="ml-4 flex-1">
+            <Text className="text-xl font-inter-bold text-surface">{user?.name || 'User'}</Text>
+            <View className="flex-row items-center mt-1">
+              <View className="w-1.5 h-1.5 rounded-full bg-accent mr-2" />
+              <Text className="text-[13px] font-inter-medium text-white/50">{user?.phone || 'Account Verified'}</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.menuList} contentContainerStyle={{ paddingBottom: bottomInset + 20 }}>
-        <View style={styles.menuGroup}>
+      <ScrollView
+        className="flex-1 -mt-4"
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: bottomInset + 30 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View>
           {MENU_ITEMS.map((item, index) => (
-            <AnimatedMenuItem
+            <TouchableOpacity
               key={item.id}
-              item={item}
-              index={index}
+              className="flex-row items-center justify-between bg-white mx-6 mb-2.5 p-3.5 rounded-2xl border border-gray-50 shadow-sm"
               onPress={() => router.push(item.route as any)}
-            />
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center">
+                <View className="w-10 h-10 rounded-xl items-center justify-center mr-3.5" style={{ backgroundColor: item.color + '10' }}>
+                  <Ionicons name={item.icon as any} size={20} color={item.color} />
+                </View>
+                <Text className="text-sm font-inter-bold text-text">{item.label}</Text>
+              </View>
+              <View className="w-7 h-7 rounded-full bg-gray-50 items-center justify-center">
+                <Ionicons name="chevron-forward" size={14} color={Colors.divider} />
+              </View>
+            </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-          <Feather name="log-out" size={20} color={Colors.danger} />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity
+          className="flex-row items-center justify-between mx-6 mt-6 p-4 bg-red-50 rounded-3xl border border-red-100"
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-xl bg-white items-center justify-center mr-3.5 shadow-sm">
+              <Feather name="log-out" size={20} color={Colors.danger} />
+            </View>
+            <View>
+              <Text className="text-sm font-inter-bold text-danger">Sign Out</Text>
+              <Text className="text-[9px] font-inter-bold text-danger/40 uppercase tracking-widest mt-0.5">End active session</Text>
+            </View>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={Colors.danger} />
         </TouchableOpacity>
 
-        <Text style={styles.version}>My Load 24 v1.0.0</Text>
+        <View className="items-center mt-10">
+          <View className="bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+            <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[3px]">
+              My Load 24 • v1.0.0
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  headerGradient: { paddingBottom: 24 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  profileSection: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 16 },
-  avatarLarge: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.surface, marginBottom: 2 },
-  profilePhone: { fontSize: 14, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.6)' },
-  menuList: { flex: 1, paddingTop: 12 },
-  menuGroup: { marginHorizontal: 16, backgroundColor: Colors.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.divider },
-  menuIconWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  menuLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium', color: Colors.text },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 24, paddingVertical: 16, backgroundColor: Colors.dangerLight, borderRadius: 14, gap: 10 },
-  logoutText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.danger },
-  version: { textAlign: 'center', marginTop: 16, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textTertiary },
-});
+const styles = StyleSheet.create({});

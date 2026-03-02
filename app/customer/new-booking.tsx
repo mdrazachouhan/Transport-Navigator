@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,25 +11,35 @@ import {
   Animated,
   TextInput,
   Dimensions,
-  KeyboardAvoidingView,
+  StatusBar,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import RouteMap from '@/components/RouteMap';
-import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
-import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
-import { MOCK_LOCATIONS, type Location } from '@/lib/locations';
+import LocationPickerMap from '@/components/LocationPickerMap';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { MOCK_LOCATIONS, BILASPUR_REGION } from '@/lib/locations';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+export interface MapLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  area: string;
+  isLoaded?: boolean;
+}
 
 const VEHICLE_OPTIONS = [
-  { type: 'auto', label: 'Auto', icon: 'rickshaw' as const, baseFare: 50, perKm: 12, capacity: 'Up to 200kg' },
-  { type: 'tempo', label: 'Tempo', icon: 'truck-outline' as const, baseFare: 150, perKm: 18, capacity: 'Up to 1000kg' },
-  { type: 'truck', label: 'Truck', icon: 'truck' as const, baseFare: 300, perKm: 25, capacity: '1000kg+' },
+  { type: 'auto', label: 'Auto', icon: 'rickshaw' as const, baseFare: 50, perKm: 12, capacity: '200kg', color: '#F59E0B' },
+  { type: 'tempo', label: 'Tempo', icon: 'truck-outline' as const, baseFare: 150, perKm: 18, capacity: '1000kg', color: '#10B981' },
+  { type: 'truck', label: 'Truck', icon: 'truck' as const, baseFare: 300, perKm: 25, capacity: '1000kg+', color: '#1B6EF3' },
 ];
 
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -37,7 +47,7 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
     Math.round(
       Math.sqrt(
         Math.pow((lat2 - lat1) * 111, 2) +
-          Math.pow((lng2 - lng1) * 111 * Math.cos((lat1 * Math.PI) / 180), 2)
+        Math.pow((lng2 - lng1) * 111 * Math.cos((lat1 * Math.PI) / 180), 2)
       ) * 10
     ) / 10
   );
@@ -47,25 +57,39 @@ function LocationSearchItem({
   loc,
   type,
   onPress,
+  index,
 }: {
-  loc: Location;
+  loc: MapLocation;
   type: 'pickup' | 'delivery';
   onPress: () => void;
+  index: number;
 }) {
+  const fade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fade, { toValue: 1, duration: 300, delay: index * 30, useNativeDriver: true }).start();
+  }, []);
+
   return (
-    <TouchableOpacity style={styles.searchResultItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.searchResultIcon, type === 'delivery' && styles.searchResultIconDelivery]}>
-        <Ionicons
-          name={type === 'pickup' ? 'location' : 'flag'}
-          size={16}
-          color={type === 'pickup' ? Colors.success : Colors.danger}
-        />
-      </View>
-      <View style={styles.searchResultText}>
-        <Text style={styles.searchResultName}>{loc.name}</Text>
-        <Text style={styles.searchResultArea}>{loc.area}</Text>
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={{ opacity: fade }}>
+      <TouchableOpacity
+        className="flex-row items-center bg-white rounded-xl p-3 mb-2 border border-gray-100 shadow-sm"
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View className={`w-9 h-9 rounded-lg items-center justify-center mr-3 ${type === 'pickup' ? 'bg-success/5' : 'bg-danger/5'}`}>
+          <Ionicons
+            name={type === 'pickup' ? 'location' : 'flag'}
+            size={16}
+            color={type === 'pickup' ? Colors.success : Colors.danger}
+          />
+        </View>
+        <View className="flex-1">
+          <Text className="text-[14px] font-inter-semibold text-text mb-0.5">{loc.name}</Text>
+          <Text className="text-[11px] font-inter-medium text-text-tertiary uppercase tracking-wider" numberOfLines={1}>{loc.area}</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -81,749 +105,503 @@ function VehicleOption({
   onPress: () => void;
 }) {
   const totalPrice = vehicle.baseFare + Math.round(distance * vehicle.perKm);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        style={[styles.vehicleOption, isActive && styles.vehicleOptionActive]}
-        onPress={() => {
-          Animated.sequence([
-            Animated.timing(scaleAnim, { toValue: 0.95, duration: 80, useNativeDriver: true }),
-            Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 120, useNativeDriver: true }),
-          ]).start();
-          onPress();
-        }}
-        activeOpacity={0.85}
-      >
-        <View style={[styles.vehicleIconBox, isActive && styles.vehicleIconBoxActive]}>
-          <MaterialCommunityIcons
-            name={vehicle.icon}
-            size={26}
-            color={isActive ? '#FFFFFF' : Colors.primary}
-          />
-        </View>
-        <View style={styles.vehicleInfo}>
-          <Text style={[styles.vehicleLabel, isActive && styles.vehicleLabelActive]}>{vehicle.label}</Text>
-          <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
-        </View>
-        <View style={styles.vehiclePriceBox}>
-          <Text style={[styles.vehiclePrice, isActive && styles.vehiclePriceActive]}>
-            {'\u20B9'}{totalPrice}
-          </Text>
-        </View>
-        {isActive && (
-          <View style={styles.vehicleCheckmark}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
-          </View>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      className={`flex-row items-center p-3.5 rounded-2xl mb-2.5 border transition-all ${isActive ? 'border-primary bg-primary/5' : 'border-gray-50 bg-white'}`}
+    >
+      <View className={`w-11 h-11 rounded-xl items-center justify-center mr-4 ${isActive ? 'bg-primary/10' : 'bg-gray-100'}`}>
+        <MaterialCommunityIcons name={vehicle.icon} size={24} color={isActive ? Colors.primary : Colors.textSecondary} />
+      </View>
+      <View className="flex-1">
+        <Text className={`text-sm font-inter-bold ${isActive ? 'text-text' : 'text-text-secondary'} mb-0.5`}>{vehicle.label}</Text>
+        <Text className="text-[10px] font-inter-medium text-text-tertiary">{vehicle.capacity}</Text>
+      </View>
+      <View className="items-end">
+        <Text className="text-base font-inter-bold text-text">₹{totalPrice}</Text>
+        <Text className="text-[9px] font-inter-bold text-primary uppercase mt-0.5 tracking-wider">₹{vehicle.perKm}/km</Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 export default function NewBookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const { createBooking } = useBookings();
-  const { addNotification } = useNotifications();
 
-  const [pickup, setPickup] = useState<Location | null>(null);
-  const [delivery, setDelivery] = useState<Location | null>(null);
+  const [pickup, setPickup] = useState<MapLocation | null>(null);
+  const [delivery, setDelivery] = useState<MapLocation | null>(null);
+  const [activeField, setActiveField] = useState<'pickup' | 'delivery' | null>(null);
   const [pickupSearch, setPickupSearch] = useState('');
   const [deliverySearch, setDeliverySearch] = useState('');
-  const [activeField, setActiveField] = useState<'pickup' | 'delivery' | null>('pickup');
-  const [vehicleType, setVehicleType] = useState('auto');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi'>('cash');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
+  const [isPickingFromMap, setIsPickingFromMap] = useState(false);
+  const [distance, setDistance] = useState(0);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [tempLocation, setTempLocation] = useState<MapLocation | null>(null);
+  const searchId = useRef(0);
 
-  const bottomSheetAnim = useRef(new Animated.Value(0)).current;
-  const mapFadeAnim = useRef(new Animated.Value(0)).current;
-
-  const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
-
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
   const bothSelected = pickup !== null && delivery !== null;
 
-  const distance = bothSelected
-    ? calculateDistance(pickup.lat, pickup.lng, delivery.lat, delivery.lng)
-    : 0;
+  useEffect(() => {
+    if (pickup && delivery && GOOGLE_MAPS_API_KEY) {
+      const getDistance = async () => {
+        setCalculatingDistance(true);
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${pickup.lat},${pickup.lng}&destinations=${delivery.lat},${delivery.lng}&key=${GOOGLE_MAPS_API_KEY}`
+          );
+          const data = await response.json();
+          if (data.status === 'OK' && data.rows[0].elements[0].status === 'OK') {
+            const distInKm = data.rows[0].elements[0].distance.value / 1000;
+            setDistance(Math.round(distInKm * 10) / 10);
+          } else {
+            // Fallback to direct distance
+            setDistance(calculateDistance(pickup.lat, pickup.lng, delivery.lat, delivery.lng));
+          }
+        } catch (e) {
+          console.error('Distance Matrix Error:', e);
+          setDistance(calculateDistance(pickup.lat, pickup.lng, delivery.lat, delivery.lng));
+        } finally {
+          setCalculatingDistance(false);
+        }
+      };
+      getDistance();
+    } else if (pickup && delivery) {
+      setDistance(calculateDistance(pickup.lat, pickup.lng, delivery.lat, delivery.lng));
+    }
+  }, [pickup, delivery]);
 
-  const selectedVehicle = VEHICLE_OPTIONS.find((v) => v.type === vehicleType)!;
-  const totalPrice = selectedVehicle.baseFare + Math.round(distance * selectedVehicle.perKm);
-  const eta = Math.round(distance * 3 + 5);
+  const performSearch = async (query: string) => {
+    if (query.length < 3) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
 
-  const filteredLocations = useMemo(() => {
-    const searchText = activeField === 'pickup' ? pickupSearch : deliverySearch;
-    const excludeId = activeField === 'pickup' ? delivery?.id : pickup?.id;
-    return MOCK_LOCATIONS.filter((loc) => {
-      if (loc.id === excludeId) return false;
-      if (!searchText.trim()) return true;
-      const q = searchText.toLowerCase();
-      return loc.name.toLowerCase().includes(q) || loc.area.toLowerCase().includes(q);
-    });
-  }, [pickupSearch, deliverySearch, activeField, pickup, delivery]);
+    const currentSearchId = ++searchId.current;
+    setIsSearching(true);
+
+    if (GOOGLE_MAPS_API_KEY) {
+      try {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}&components=country:in&location=${BILASPUR_REGION.latitude},${BILASPUR_REGION.longitude}&radius=50000`
+        );
+        const data = await response.json();
+
+        // Only update if this is still the most recent search
+        if (currentSearchId === searchId.current) {
+          if (data.status === 'OK') {
+            const results = data.predictions.map((p: any) => ({
+              id: p.place_id,
+              name: p.structured_formatting.main_text,
+              area: p.structured_formatting.secondary_text,
+              place_id: p.place_id
+            }));
+            setSearchResults(results);
+          } else {
+            setSearchResults([]);
+          }
+        }
+      } catch (e) {
+        console.error('Places Autocomplete Error:', e);
+        if (currentSearchId === searchId.current) setSearchResults([]);
+      }
+    } else {
+      // Mock search fallback
+      const searchTerms = query.toLowerCase().split(' ');
+      const mockResults: MapLocation[] = MOCK_LOCATIONS.filter(r => {
+        const name = r.name.toLowerCase();
+        const area = r.area.toLowerCase();
+        return searchTerms.every(term => name.includes(term) || area.includes(term));
+      });
+      if (currentSearchId === searchId.current) {
+        setSearchResults(mockResults);
+      }
+    }
+
+    if (currentSearchId === searchId.current) {
+      setIsSearching(false);
+    }
+  };
 
   useEffect(() => {
-    if (bothSelected) {
-      setActiveField(null);
-      Animated.parallel([
-        Animated.spring(bottomSheetAnim, { toValue: 1, tension: 65, friction: 10, useNativeDriver: true }),
-        Animated.timing(mapFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]).start();
-
-    } else {
-      bottomSheetAnim.setValue(0);
-      mapFadeAnim.setValue(0);
-    }
-  }, [bothSelected]);
-
-  const handleSelectLocation = (loc: Location) => {
     if (activeField === 'pickup') {
-      setPickup(loc);
-      setPickupSearch(loc.name);
-      if (!delivery) {
-        setActiveField('delivery');
-      }
+      performSearch(pickupSearch);
     } else if (activeField === 'delivery') {
-      setDelivery(loc);
-      setDeliverySearch(loc.name);
+      performSearch(deliverySearch);
+    } else {
+      setSearchResults([]);
     }
-  };
+  }, [pickupSearch, deliverySearch, activeField]);
 
-  const handleClearPickup = () => {
-    setPickup(null);
-    setPickupSearch('');
-    setActiveField('pickup');
-  };
-
-  const handleClearDelivery = () => {
-    setDelivery(null);
-    setDeliverySearch('');
-    setActiveField('delivery');
-  };
-
-  const handleConfirm = async () => {
+  const handleConfirmBooking = async () => {
     if (!pickup || !delivery) return;
     setLoading(true);
-    try {
-      const result = await createBooking({
-        pickup: { name: pickup.name, area: pickup.area, lat: pickup.lat, lng: pickup.lng },
-        delivery: { name: delivery.name, area: delivery.area, lat: delivery.lat, lng: delivery.lng },
-        vehicleType,
-        paymentMethod,
+    const result = await createBooking({
+      pickup,
+      delivery,
+      vehicleType: selectedVehicle.type,
+      totalPrice: selectedVehicle.baseFare + Math.round(distance * selectedVehicle.perKm),
+      distance,
+    });
+    setLoading(false);
+    if (result.success && result.booking) {
+      const bookingId = result.booking.id;
+      // Use direct replace to the tracking screen with the booking params
+      router.replace({
+        pathname: '/customer/track-ride' as any,
+        params: { bookingId }
       });
-      if (result.success && result.booking) {
-        addNotification('Booking Created', `Your ${vehicleType} booking from ${pickup.name} to ${delivery.name} has been placed.`, 'booking');
-        router.replace({
-          pathname: '/customer/track-ride',
-          params: { bookingId: result.booking.id },
-        });
-      } else {
-        Alert.alert('Error', result.error || 'Failed to create booking');
-      }
-    } catch {
-      Alert.alert('Error', 'Something went wrong');
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Booking Creation Error:', result.error);
+      Alert.alert('Booking Error', result.error || 'Something went wrong. Please check your network and try again.');
     }
   };
 
-  const rideSheetTranslateY = bottomSheetAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [400, 0],
-  });
+  const handleLocationSelectFromMap = (loc: MapLocation) => {
+    setTempLocation(loc);
+  };
 
   return (
-    <View style={[styles.container]}>
-      {bothSelected ? (
-        <Animated.View style={[styles.mapContainer, { opacity: mapFadeAnim }]}>
-          <RouteMap pickup={pickup} delivery={delivery} />
-        </Animated.View>
-      ) : (
-        <View style={[styles.searchBackground]}>
-          <LinearGradient
-            colors={[Colors.navyDark, Colors.navy, Colors.background]}
-            locations={[0, 0.35, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-      )}
-
-      <View style={[styles.topSection, { paddingTop: topInset }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={bothSelected ? Colors.text : '#FFFFFF'} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, bothSelected && styles.headerTitleDark]}>
-            {bothSelected ? 'Choose Your Ride' : 'Select Locations'}
-          </Text>
-          <View style={styles.backBtn} />
-        </View>
-
-        <View style={[styles.searchCard, bothSelected && styles.searchCardCompact]}>
-          <View style={styles.searchDots}>
-            <View style={[styles.dot, styles.dotGreen]} />
-            <View style={styles.dotLine} />
-            <View style={[styles.dot, styles.dotRed]} />
-          </View>
-          <View style={styles.searchInputs}>
-            <TouchableOpacity
-              style={[
-                styles.searchInputRow,
-                activeField === 'pickup' && !bothSelected && styles.searchInputRowActive,
-              ]}
-              onPress={() => {
-                if (bothSelected) {
-                  handleClearPickup();
-                } else {
-                  setActiveField('pickup');
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              {!bothSelected && activeField === 'pickup' ? (
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search pickup location..."
-                  placeholderTextColor={Colors.textTertiary}
-                  value={pickupSearch}
-                  onChangeText={(text) => {
-                    setPickupSearch(text);
-                    if (pickup) setPickup(null);
-                  }}
-                  autoFocus
-                  testID="pickup-search"
-                />
-              ) : (
-                <Text style={[styles.searchInputText, pickup && styles.searchInputTextFilled]} numberOfLines={1}>
-                  {pickup ? pickup.name : 'Search pickup location...'}
-                </Text>
-              )}
-              {pickup && (
-                <TouchableOpacity onPress={handleClearPickup} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.searchDivider} />
-
-            <TouchableOpacity
-              style={[
-                styles.searchInputRow,
-                activeField === 'delivery' && !bothSelected && styles.searchInputRowActive,
-              ]}
-              onPress={() => {
-                if (bothSelected) {
-                  handleClearDelivery();
-                } else {
+    <View className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" />
+      <View className="absolute inset-0 bg-gray-50">
+        {bothSelected && !activeField ? (
+          <View className="flex-1">
+            <RouteMap pickup={pickup} delivery={delivery} />
+            {/* Dynamic Edit Pill on Map - Rapido Style */}
+            {/* Destination Edit Pill on Map - Rapido Style */}
+            <View className="absolute top-4 left-5 right-5 flex-row">
+              <TouchableOpacity
+                onPress={() => {
                   setActiveField('delivery');
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              {!bothSelected && activeField === 'delivery' ? (
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search delivery location..."
-                  placeholderTextColor={Colors.textTertiary}
-                  value={deliverySearch}
-                  onChangeText={(text) => {
-                    setDeliverySearch(text);
-                    if (delivery) setDelivery(null);
-                  }}
-                  autoFocus
-                  testID="delivery-search"
-                />
-              ) : (
-                <Text style={[styles.searchInputText, delivery && styles.searchInputTextFilled]} numberOfLines={1}>
-                  {delivery ? delivery.name : 'Search delivery location...'}
+                  setIsPickingFromMap(true);
+                }}
+                className="bg-white/95 px-5 py-3 rounded-full shadow-2xl border border-gray-100 flex-row items-center flex-1"
+                activeOpacity={0.9}
+              >
+                <View className="w-2.5 h-2.5 rounded-full bg-danger mr-3" />
+                <Text className="text-[14px] font-inter-bold text-text flex-1 mr-2" numberOfLines={1}>
+                  {delivery.name}
                 </Text>
-              )}
-              {delivery && (
-                <TouchableOpacity onPress={handleClearDelivery} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
+                <View className="w-8 h-8 items-center justify-center bg-gray-50 rounded-full border border-gray-100">
+                  <Ionicons name="pencil-sharp" size={14} color={Colors.primary} />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
+        ) : (
+          <View className="flex-1">
+            <LocationPickerMap
+              activeField={activeField}
+              onLocationSelect={handleLocationSelectFromMap}
+              googleMapsApiKey={GOOGLE_MAPS_API_KEY}
+              initialLocation={activeField === 'pickup' ? pickup : delivery}
+            />
+            {activeField && (
+              <View className="absolute bottom-8 left-0 right-0 items-center px-6">
+                <View className="bg-white p-4 rounded-[24px] mb-5 shadow-2xl border border-primary/10 w-[90%]">
+                  <View className="flex-row items-center mb-2">
+                    <View className={`w-2 h-2 rounded-full mr-2 ${activeField === 'pickup' ? 'bg-success' : 'bg-danger'}`} />
+                    <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px]">Confirm {activeField} Location</Text>
+                  </View>
+                  <Text className="text-[13px] font-inter-semibold text-text leading-5" numberOfLines={2}>
+                    {tempLocation?.isLoaded === false ? 'Locating...' : (tempLocation?.area || 'Drag map to select exact point')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  className={`w-[90%] py-4 rounded-2xl shadow-2xl shadow-primary/30 flex-row items-center justify-center ${(!tempLocation || tempLocation.isLoaded === false) ? 'bg-gray-400' : 'bg-primary'}`}
+                  disabled={!tempLocation || tempLocation.isLoaded === false}
+                  onPress={() => {
+                    if (tempLocation && tempLocation.isLoaded !== false && tempLocation.lat && tempLocation.lng) {
+                      const finalLoc = { ...tempLocation };
+                      delete finalLoc.isLoaded;
+
+                      console.log(`[MAP-PICK] Confirming ${activeField}: ${finalLoc.name}`);
+
+                      if (activeField === 'pickup') {
+                        setPickup(finalLoc);
+                        setPickupSearch(finalLoc.name);
+                      } else {
+                        setDelivery(finalLoc);
+                        setDeliverySearch(finalLoc.name);
+                      }
+
+                      setActiveField(null);
+                      setIsPickingFromMap(false);
+                      setTempLocation(null);
+                      Keyboard.dismiss();
+                    } else {
+                      Alert.alert('Incomplete Location', 'Please wait for the address to load or move the map slightly.');
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text className="text-white font-inter-bold uppercase tracking-[2px] text-sm">Confirm Location</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+
+      <View className="z-10 bg-white/95 shadow-lg rounded-b-[32px]" style={{ paddingTop: topInset }}>
+        <View className="flex-row items-center px-5 py-3">
+          <TouchableOpacity onPress={() => router.back()} className="w-9 h-9 items-center justify-center bg-gray-50 rounded-xl border border-gray-100">
+            <Ionicons name="chevron-back" size={20} color={Colors.text} />
+          </TouchableOpacity>
+          <Text className="flex-1 text-center text-base font-inter-bold text-text">
+            {bothSelected ? 'Confirm Trip' : 'Select Locations'}
+          </Text>
+          <View className="w-9" />
+        </View>
+
+        <View className="px-5 pb-4">
+          <View className="flex-row items-center bg-[#F9FAFB] rounded-2xl p-4 border border-gray-100">
+            <View className="items-center mr-4">
+              <View className="w-2.5 h-2.5 rounded-full bg-success" />
+              <View className="w-px h-6 bg-gray-200 my-1 border-dashed border-l border-gray-300" />
+              <View className="w-2.5 h-2.5 rounded-full bg-danger" />
+            </View>
+            <View className="flex-1">
+              <TouchableOpacity
+                className="flex-row items-center h-12 border-b border-gray-100 mb-0.5"
+                onPress={() => {
+                  setActiveField('pickup');
+                  setIsPickingFromMap(false);
+                }}
+              >
+                {activeField === 'pickup' ? (
+                  <TextInput
+                    className="flex-1 text-[15px] font-inter-semibold text-text"
+                    style={{ paddingVertical: 0 }}
+                    placeholder="Enter pickup point"
+                    placeholderTextColor="#9CA3AF"
+                    value={pickupSearch}
+                    onChangeText={setPickupSearch}
+                    onFocus={() => {
+                      setSearchResults([]);
+                      if (pickup) setPickupSearch('');
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center"
+                    onPress={() => {
+                      setActiveField('pickup');
+                      setIsPickingFromMap(false);
+                    }}
+                  >
+                    <Text className={`flex-1 text-[15px] font-inter-semibold ${pickup ? 'text-text' : 'text-text-tertiary'}`} numberOfLines={1}>
+                      {pickup ? pickup.name : 'Choose Pickup'}
+                    </Text>
+                    {pickup && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setActiveField('pickup');
+                          setIsPickingFromMap(true);
+                        }}
+                        className="p-1"
+                      >
+                        <Ionicons name="pencil-sharp" size={14} color={Colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="flex-row items-center h-12"
+                onPress={() => {
+                  setActiveField('delivery');
+                  setIsPickingFromMap(false);
+                }}
+              >
+                {activeField === 'delivery' ? (
+                  <TextInput
+                    className="flex-1 text-[15px] font-inter-semibold text-text"
+                    style={{ paddingVertical: 0 }}
+                    placeholder="Enter destination"
+                    placeholderTextColor="#9CA3AF"
+                    value={deliverySearch}
+                    onChangeText={setDeliverySearch}
+                    onFocus={() => {
+                      setSearchResults([]);
+                      if (delivery) setDeliverySearch('');
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center"
+                    onPress={() => {
+                      setActiveField('delivery');
+                      setIsPickingFromMap(false);
+                    }}
+                  >
+                    <Text className={`flex-1 text-[15px] font-inter-semibold ${delivery ? 'text-text' : 'text-text-tertiary'}`} numberOfLines={1}>
+                      {delivery ? delivery.name : 'Choose Destination'}
+                    </Text>
+                    {delivery && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setActiveField('delivery');
+                          setIsPickingFromMap(true);
+                        }}
+                        className="p-1"
+                      >
+                        <Ionicons name="pencil-sharp" size={14} color={Colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Select on Map Button - Rapido Style */}
+          {activeField && !isPickingFromMap && (
+            <TouchableOpacity
+              className="flex-row items-center bg-white self-start mt-3 px-5 py-2.5 rounded-full border border-gray-200 shadow-sm"
+              onPress={() => {
+                setIsPickingFromMap(true);
+                Keyboard.dismiss();
+              }}
+            >
+              <Ionicons name="location-outline" size={18} color={Colors.text} style={{ marginRight: 8 }} />
+              <Text className="text-[13px] font-inter-semibold text-text">Select on map</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {!bothSelected && activeField && (
-        <KeyboardAvoidingView
-          style={styles.resultsContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-          <ScrollView
-            style={styles.resultsList}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {filteredLocations.length === 0 ? (
-              <View style={styles.emptyResults}>
-                <Ionicons name="search-outline" size={40} color={Colors.textTertiary} />
-                <Text style={styles.emptyText}>No locations found</Text>
-              </View>
-            ) : (
-              filteredLocations.map((loc) => (
-                <LocationSearchItem
-                  key={loc.id}
-                  loc={loc}
-                  type={activeField}
-                  onPress={() => handleSelectLocation(loc)}
-                />
-              ))
-            )}
-            <View style={{ height: 100 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
-
-      {bothSelected && (
-        <Animated.View
-          style={[
-            styles.rideSheet,
-            { paddingBottom: bottomInset + 16, transform: [{ translateY: rideSheetTranslateY }] },
-          ]}
-        >
-          <View style={styles.sheetHandle} />
-
-          <View style={styles.routeInfoRow}>
-            <View style={styles.routeInfoItem}>
-              <Ionicons name="navigate-outline" size={18} color={Colors.primary} />
-              <Text style={styles.routeInfoValue}>{distance} km</Text>
-            </View>
-            <View style={styles.routeInfoDot} />
-            <View style={styles.routeInfoItem}>
-              <Ionicons name="time-outline" size={18} color={Colors.primary} />
-              <Text style={styles.routeInfoValue}>{eta} min</Text>
+      {activeField && !isPickingFromMap && (
+        <View className="absolute top-[260px] left-0 right-0 bottom-0 bg-white z-20 rounded-t-3xl shadow-xl">
+          <View className="px-5 pt-4 pb-2">
+            <View className="flex-row items-center mb-4 px-1">
+              <View className="h-[1px] flex-1 bg-gray-100" />
+              <Text className="mx-4 text-[9px] font-inter-bold text-text-tertiary uppercase tracking-widest">Suggestions</Text>
+              <View className="h-[1px] flex-1 bg-gray-100" />
             </View>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.vehicleList}>
-            {VEHICLE_OPTIONS.map((v) => (
-              <VehicleOption
-                key={v.type}
-                vehicle={v}
-                isActive={vehicleType === v.type}
-                distance={distance}
-                onPress={() => setVehicleType(v.type)}
-              />
-            ))}
+          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {isSearching ? (
+              <ActivityIndicator className="mt-10" color={Colors.primary} />
+            ) : (pickupSearch.length < 3 && deliverySearch.length < 3) ? (
+              <View className="items-center py-10 opacity-60 px-6">
+                <MaterialCommunityIcons name="map-marker-radius" size={40} color={Colors.primary + '40'} />
+                <Text className="text-sm font-inter-bold text-text mt-4">Search for an address</Text>
+                <Text className="text-[11px] font-inter-medium text-text-tertiary text-center mt-2 leading-4">
+                  Type at least 3 characters to see suggestions or use the "Set on Map" option above.
+                </Text>
+              </View>
+            ) : searchResults.length === 0 ? (
+              <View className="items-center py-10 opacity-40 px-6">
+                <Ionicons name="search-outline" size={32} color={Colors.divider} />
+                <Text className="text-xs font-inter-bold text-text mt-2 uppercase tracking-widest text-center">No results found</Text>
+                <Text className="text-[10px] font-inter-medium text-text-tertiary text-center mt-2">Try a different name or use the map.</Text>
+              </View>
+            ) : (
+              searchResults.map((loc, i) => (
+                <LocationSearchItem key={loc.id} loc={loc} type={activeField} index={i} onPress={async () => {
+                  let finalLoc = loc;
+                  if (loc.place_id) {
+                    setIsSearching(true);
+                    try {
+                      const response = await fetch(
+                        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${loc.place_id}&key=${GOOGLE_MAPS_API_KEY}`
+                      );
+                      const result = await response.json();
+                      if (result.status === 'OK') {
+                        const { lat, lng } = result.result.geometry.location;
+                        finalLoc = { ...loc, lat, lng };
+                      } else {
+                        Alert.alert('Location Error', 'Could not get coordinates for this location. Please try another or use map.');
+                        return;
+                      }
+                    } catch (e) {
+                      console.error('Place Details Error:', e);
+                      Alert.alert('Search Error', 'Failed to fetch location details. Please use the map.');
+                      return;
+                    } finally {
+                      setIsSearching(false);
+                    }
+                  }
 
-            <View style={styles.paymentSection}>
-              <Text style={styles.paymentTitle}>Payment</Text>
-              <View style={styles.paymentRow}>
-                <TouchableOpacity
-                  style={[styles.paymentBtn, paymentMethod === 'cash' && styles.paymentBtnActive]}
-                  onPress={() => setPaymentMethod('cash')}
-                >
-                  <Ionicons
-                    name="cash-outline"
-                    size={18}
-                    color={paymentMethod === 'cash' ? Colors.primary : Colors.textSecondary}
-                  />
-                  <Text style={[styles.paymentBtnText, paymentMethod === 'cash' && styles.paymentBtnTextActive]}>
-                    Cash
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.paymentBtn, paymentMethod === 'upi' && styles.paymentBtnActive]}
-                  onPress={() => setPaymentMethod('upi')}
-                >
-                  <MaterialCommunityIcons
-                    name="cellphone"
-                    size={18}
-                    color={paymentMethod === 'upi' ? Colors.primary : Colors.textSecondary}
-                  />
-                  <Text style={[styles.paymentBtnText, paymentMethod === 'upi' && styles.paymentBtnTextActive]}>
-                    UPI
-                  </Text>
-                </TouchableOpacity>
+                  if (!finalLoc.lat || !finalLoc.lng) {
+                    Alert.alert('Invalid Location', 'This location does not have coordinates. Please select from map.');
+                    return;
+                  }
+
+                  if (activeField === 'pickup') { setPickup(finalLoc); setPickupSearch(finalLoc.name); }
+                  else { setDelivery(finalLoc); setDeliverySearch(finalLoc.name); }
+                  setActiveField(null);
+                  Keyboard.dismiss();
+                }}
+                />
+              ))
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {bothSelected && !activeField && (
+        <View className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] shadow-2xl" style={{ paddingBottom: bottomInset + 8 }}>
+          <View className="p-6">
+            <View className="flex-row items-center justify-between mb-5">
+              <Text className="text-lg font-inter-bold text-text">Select Ride</Text>
+              <View className="bg-primary/10 px-3 py-1.5 rounded-xl">
+                <Text className="text-[11px] font-inter-bold text-primary">{distance} km</Text>
               </View>
             </View>
-          </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
-            onPress={handleConfirm}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.confirmGradient}
+            <ScrollView showsVerticalScrollIndicator={false} className="max-h-[280px]">
+              {VEHICLE_OPTIONS.map(v => (
+                <VehicleOption
+                  key={v.type}
+                  vehicle={v}
+                  distance={distance}
+                  isActive={selectedVehicle.type === v.type}
+                  onPress={() => setSelectedVehicle(v)}
+                />
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              className="mt-6 h-14 rounded-2xl overflow-hidden shadow-lg shadow-primary/20"
+              onPress={handleConfirmBooking}
+              disabled={loading}
+              activeOpacity={0.9}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.confirmText}>Book {selectedVehicle.label}</Text>
-                  <View style={styles.confirmPriceBadge}>
-                    <Text style={styles.confirmPrice}>{'\u20B9'}{totalPrice}</Text>
-                  </View>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </Animated.View>
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                className="flex-1 items-center justify-center"
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text className="text-base font-inter-bold text-white uppercase tracking-wider">Confirm Booking</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  mapContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  searchBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  topSection: {
-    zIndex: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 17,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#FFFFFF',
-  },
-  headerTitleDark: {
-    color: Colors.text,
-  },
-  searchCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  searchCardCompact: {
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  searchDots: {
-    width: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  dotGreen: {
-    backgroundColor: Colors.success,
-  },
-  dotRed: {
-    backgroundColor: Colors.danger,
-  },
-  dotLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: Colors.border,
-    marginVertical: 3,
-  },
-  searchInputs: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  searchInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    minHeight: 42,
-  },
-  searchInputRowActive: {
-    backgroundColor: Colors.primaryLight,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.text,
-    padding: 0,
-  },
-  searchInputText: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textTertiary,
-  },
-  searchInputTextFilled: {
-    fontFamily: 'Inter_500Medium',
-    color: Colors.text,
-  },
-  searchDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: 4,
-  },
-  resultsContainer: {
-    flex: 1,
-    zIndex: 5,
-  },
-  resultsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  searchResultIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.successLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  searchResultIconDelivery: {
-    backgroundColor: Colors.dangerLight,
-  },
-  searchResultText: {
-    flex: 1,
-  },
-  searchResultName: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.text,
-  },
-  searchResultArea: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  emptyResults: {
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyText: {
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textTertiary,
-    marginTop: 12,
-  },
-  rideSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    maxHeight: SCREEN_HEIGHT * 0.52,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  routeInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 8,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 12,
-  },
-  routeInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  routeInfoValue: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.primaryDark,
-  },
-  routeInfoDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.primaryDark,
-    marginHorizontal: 16,
-  },
-  vehicleList: {
-    maxHeight: SCREEN_HEIGHT * 0.28,
-  },
-  vehicleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-  },
-  vehicleOptionActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  vehicleIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  vehicleIconBoxActive: {
-    backgroundColor: Colors.primary,
-  },
-  vehicleInfo: {
-    flex: 1,
-  },
-  vehicleLabel: {
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-  },
-  vehicleLabelActive: {
-    color: Colors.primaryDark,
-  },
-  vehicleCapacity: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  vehiclePriceBox: {
-    marginRight: 4,
-  },
-  vehiclePrice: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-  },
-  vehiclePriceActive: {
-    color: Colors.primaryDark,
-  },
-  vehicleCheckmark: {
-    marginLeft: 4,
-  },
-  paymentSection: {
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  paymentTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  paymentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.background,
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-  },
-  paymentBtnActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  paymentBtnText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
-  },
-  paymentBtnTextActive: {
-    color: Colors.primary,
-  },
-  confirmBtn: {
-    marginTop: 8,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.6,
-  },
-  confirmGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  confirmText: {
-    fontSize: 17,
-    fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
-  },
-  confirmPriceBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  confirmPrice: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
-  },
-});
+const styles = StyleSheet.create({});

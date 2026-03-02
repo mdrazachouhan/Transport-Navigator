@@ -7,82 +7,19 @@ import {
   ScrollView,
   Platform,
   Animated,
-  Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
-import { MOCK_LOCATIONS } from '@/lib/locations';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const FLOATING_PINS = [
-  { top: 90, left: 40, delay: 0, size: 16 },
-  { top: 160, left: SCREEN_WIDTH - 70, delay: 300, size: 14 },
-  { top: 220, left: SCREEN_WIDTH / 2 - 20, delay: 600, size: 12 },
-  { top: 130, left: SCREEN_WIDTH / 2 + 50, delay: 900, size: 15 },
-];
-
-const GREETING_WORDS = ['Hello,'];
-
-function FloatingPin({ pin }: { pin: typeof FLOATING_PINS[0] }) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 2000 + pin.delay,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2000 + pin.delay,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    const timeout = setTimeout(() => animation.start(), pin.delay);
-    return () => {
-      clearTimeout(timeout);
-      animation.stop();
-    };
-  }, []);
-
-  const translateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -8],
-  });
-
-  const opacity = floatAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.4, 0.7, 0.4],
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.floatingPin,
-        {
-          top: pin.top,
-          left: pin.left,
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-    >
-      <Ionicons name="location" size={pin.size} color={Colors.primary} />
-    </Animated.View>
-  );
-}
+import Map from '@/components/Map';
 
 function PulsingDot() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -90,82 +27,23 @@ function PulsingDot() {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
-  const glowScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.6],
-  });
-
-  const glowOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.6, 0],
-  });
+  const glowScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
+  const glowOpacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
 
   return (
-    <View style={styles.pulseIndicator}>
+    <View className="w-10 h-10 items-center justify-center">
       <Animated.View
-        style={[
-          styles.pulseGlow,
-          {
-            transform: [{ scale: glowScale }],
-            opacity: glowOpacity,
-          },
-        ]}
+        className="absolute w-6 h-6 rounded-full bg-primary/30"
+        style={{ transform: [{ scale: glowScale }], opacity: glowOpacity }}
       />
-      <View style={styles.pulseCore} />
+      <View className="w-3.5 h-3.5 rounded-full bg-primary border-2 border-white shadow-sm" />
     </View>
-  );
-}
-
-function LocationChip({ location, onPress }: { location: typeof MOCK_LOCATIONS[0]; onPress: () => void }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.93,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  };
-
-  return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        style={styles.quickLocationChip}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="location" size={14} color={Colors.primary} />
-        <Text style={styles.quickLocationText} numberOfLines={1}>
-          {location.name}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
   );
 }
 
@@ -176,570 +54,187 @@ export default function CustomerHomeScreen() {
   const { bookings, fetchBookings, getActiveBooking } = useBookings();
   const { unreadCount } = useNotifications();
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const webBottom = Platform.OS === 'web' ? 34 : 0;
-  const topInset = insets.top + webTop;
-  const bottomInset = insets.bottom + webBottom;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(40)).current;
-  const bannerAnim = useRef(new Animated.Value(-100)).current;
-  const searchGlowAnim = useRef(new Animated.Value(0)).current;
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const headerSlide = useRef(new Animated.Value(-20)).current;
+  const bottomSheetSlide = useRef(new Animated.Value(100)).current;
+  const bannerSlide = useRef(new Animated.Value(-100)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
-
-  const greetingWordAnims = useRef(
-    ['Hello,', user?.name || 'User'].map(() => new Animated.Value(0))
-  ).current;
 
   const activeBooking = getActiveBooking();
 
   useEffect(() => {
     fetchBookings();
+
+    Animated.parallel([
+      Animated.timing(headerFade, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.spring(headerSlide, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true }),
+      Animated.spring(bottomSheetSlide, { toValue: 0, tension: 30, friction: 9, useNativeDriver: true })
+    ]).start();
   }, []);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    const wordAnimations = greetingWordAnims.map((anim, index) =>
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 400,
-        delay: 300 + index * 200,
-        useNativeDriver: true,
-      })
-    );
-    Animated.stagger(200, wordAnimations).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(searchGlowAnim, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: false,
-        }),
-        Animated.timing(searchGlowAnim, {
-          toValue: 0,
-          duration: 1800,
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
     if (activeBooking) {
-      Animated.spring(bannerAnim, {
-        toValue: 0,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(bannerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }).start();
+    } else {
+      bannerSlide.setValue(-100);
     }
   }, [activeBooking]);
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending': return 'Finding Driver';
-      case 'accepted': return 'Driver Assigned';
-      case 'in_progress': return 'In Transit';
-      default: return status;
+      case 'pending': return 'Looking for driver...';
+      case 'accepted': return 'Driver on away';
+      case 'in_progress': return 'Trip started';
+      default: return 'Active';
     }
   };
 
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, -15],
+  const mapScale = scrollY.interpolate({
+    inputRange: [-100, 0, 100],
+    outputRange: [1.2, 1, 1],
     extrapolate: 'clamp',
   });
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 80],
-    outputRange: [1, 0.85],
-    extrapolate: 'clamp',
-  });
-
-  const searchBorderColor = searchGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [Colors.cardBorder, Colors.primaryGlow],
-  });
-
-  const searchShadowOpacity = searchGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.2],
-  });
-
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollY.setValue(event.nativeEvent.contentOffset.y);
-  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.mapBackground}>
+    <View className="flex-1 bg-[#F5F7FA]">
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      <Animated.View className="absolute inset-x-0 top-0 h-[70%]" style={{ transform: [{ scale: mapScale }] }}>
+        <Map />
         <LinearGradient
-          colors={[Colors.navyDark, Colors.navy]}
-          style={styles.gradientTop}
+          colors={['rgba(8, 18, 32, 0.9)', 'rgba(8, 18, 32, 0)']}
+          className="absolute inset-0"
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 0.6 }}
         />
-        <View style={styles.mapGrid}>
-          {Array.from({ length: 20 }).map((_, i) => (
-            <View key={i} style={styles.mapGridLine} />
-          ))}
-        </View>
-        {FLOATING_PINS.map((pin, index) => (
-          <FloatingPin key={index} pin={pin} />
-        ))}
-        {MOCK_LOCATIONS.slice(0, 5).map((loc, index) => (
-          <View
-            key={loc.id}
-            style={[
-              styles.mapDot,
-              {
-                top: 100 + (index * 80) % 300,
-                left: 30 + (index * 120) % (SCREEN_WIDTH - 60),
-              },
-            ]}
-          >
-            <View style={styles.mapDotInner} />
-          </View>
-        ))}
-        <View style={styles.mapOverlay} />
-      </View>
+      </Animated.View>
 
       <Animated.View
-        style={[
-          styles.header,
-          {
-            paddingTop: topInset + 8,
-            transform: [{ translateY: headerTranslateY }],
-            opacity: headerOpacity,
-          },
-        ]}
+        className="absolute top-0 left-0 right-0 z-10 px-6"
+        style={{
+          paddingTop: topInset + 12,
+          opacity: headerFade,
+          transform: [{ translateY: headerSlide }]
+        }}
       >
-        <Animated.View
-          style={[
-            styles.headerContent,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <TouchableOpacity style={styles.headerLeft} onPress={() => router.push('/customer/menu' as any)} activeOpacity={0.7}>
-            <View style={styles.avatarContainer}>
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            className="flex-row items-center flex-1 bg-white/5 p-1.5 rounded-xl border border-white/5"
+            onPress={() => router.push('/customer/menu' as any)}
+            activeOpacity={0.7}
+          >
+            <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10">
               <Ionicons name="person" size={20} color={Colors.surface} />
             </View>
-            <View style={styles.greetingContainer}>
-              <Animated.Text
-                style={[
-                  styles.greetingText,
-                  {
-                    opacity: greetingWordAnims[0],
-                    transform: [
-                      {
-                        translateY: greetingWordAnims[0].interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [8, 0],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                Hello,
-              </Animated.Text>
-              <Animated.Text
-                style={[
-                  styles.userName,
-                  {
-                    opacity: greetingWordAnims[1],
-                    transform: [
-                      {
-                        translateY: greetingWordAnims[1].interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [8, 0],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                {user?.name || 'User'}
-              </Animated.Text>
+            <View className="ml-3">
+              <Text className="text-[9px] font-inter-bold text-white/40 uppercase tracking-[1.5px]">Premium User</Text>
+              <Text className="text-lg font-inter-bold text-surface">{user?.name || 'User'}</Text>
             </View>
           </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => router.push('/customer/notifications' as any)}
-            >
-              <Ionicons name="notifications-outline" size={22} color={Colors.surface} />
-              {unreadCount > 0 && (
-                <View style={styles.notifBadge}>
-                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => router.push('/customer/menu' as any)}
-            >
-              <Ionicons name="menu" size={24} color={Colors.surface} />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+
+          <TouchableOpacity
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center ml-3 border border-white/10 relative"
+            onPress={() => router.push('/customer/notifications' as any)}
+          >
+            <Feather name="bell" size={20} color={Colors.surface} />
+            {unreadCount > 0 && (
+              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-md bg-danger border-2 border-[#081220] items-center justify-center px-0.5">
+                <Text className="text-[8px] font-inter-bold text-surface">{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {activeBooking && (
         <Animated.View
-          style={[
-            styles.activeBanner,
-            { top: topInset + 70, transform: [{ translateY: bannerAnim }] },
-          ]}
+          className="absolute left-5 right-5 z-10"
+          style={{ top: topInset + 85, transform: [{ translateY: bannerSlide }] }}
         >
           <TouchableOpacity
-            style={styles.activeBannerContent}
-            onPress={() =>
-              router.push({
-                pathname: '/customer/track-ride' as any,
-                params: { bookingId: activeBooking.id },
-              })
-            }
+            className="flex-row items-center justify-between bg-surface rounded-[20px] p-4 shadow-2xl border border-primary/10"
+            onPress={() => router.push({ pathname: '/customer/track-ride' as any, params: { bookingId: activeBooking.id } })}
           >
-            <View style={styles.activeBannerLeft}>
+            <View className="flex-row items-center">
               <PulsingDot />
-              <View>
-                <Text style={styles.activeBannerTitle}>Active Booking</Text>
-                <Text style={styles.activeBannerStatus}>
+              <View className="ml-3">
+                <Text className="text-sm font-inter-bold text-text">Ongoing Activity</Text>
+                <Text className="text-[10px] font-inter-bold text-primary mt-0.5 uppercase tracking-wide">
                   {getStatusLabel(activeBooking.status)}
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+            <View className="w-8 h-8 rounded-full bg-primary/5 items-center justify-center">
+              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+            </View>
           </TouchableOpacity>
         </Animated.View>
       )}
 
-      <View style={[styles.bottomSection, { paddingBottom: bottomInset + 16 }]}>
+      <Animated.View
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] pt-6 shadow-2xl"
+        style={{
+          paddingBottom: bottomInset + 10,
+          transform: [{ translateY: bottomSheetSlide }]
+        }}
+      >
         <ScrollView
-          onScroll={onScroll}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
-          bounces={true}
+          className="px-5"
         >
-          <Animated.View
-            style={[
-              styles.searchBarContainer,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => router.push('/customer/new-booking' as any)}
-              activeOpacity={0.85}
-            >
-              <Animated.View
-                style={[
-                  styles.searchBar,
-                  {
-                    borderColor: searchBorderColor,
-                    shadowColor: Colors.primary,
-                    shadowOpacity: searchShadowOpacity,
-                    shadowRadius: 12,
-                    shadowOffset: { width: 0, height: 0 },
-                  },
-                ]}
-              >
-                <View style={styles.searchIconContainer}>
-                  <Ionicons name="search" size={20} color={Colors.primary} />
-                </View>
-                <Text style={styles.searchPlaceholder}>Where to?</Text>
-                <Feather name="arrow-right" size={20} color={Colors.textTertiary} />
-              </Animated.View>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <View style={styles.quickLocations}>
-            <Text style={styles.quickLocationsTitle}>Popular locations</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickLocationsList}
-            >
-              {MOCK_LOCATIONS.slice(0, 4).map((location) => (
-                <LocationChip
-                  key={location.id}
-                  location={location}
-                  onPress={() => router.push('/customer/new-booking' as any)}
-                />
-              ))}
-            </ScrollView>
+          <View className="items-center mb-6">
+            <View className="w-10 h-1 bg-gray-100 rounded-full mb-5" />
+            <Text className="text-xl font-inter-bold text-text text-center">Where are we going?</Text>
+            <Text className="text-[13px] font-inter-medium text-text-tertiary mt-1.5">Pick a destination for your ride</Text>
           </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/customer/new-booking' as any)}
+            activeOpacity={0.9}
+            className="mb-6"
+          >
+            <View className="flex-row items-center bg-gray-50 rounded-[20px] px-4 py-4 border border-gray-100">
+              <View className="w-9 h-9 rounded-lg bg-primary/10 items-center justify-center mr-3">
+                <Ionicons name="search" size={20} color={Colors.primary} />
+              </View>
+              <Text className="flex-1 text-base font-inter-bold text-text-secondary">Where to?</Text>
+              <Ionicons name="arrow-forward" size={18} color={Colors.divider} />
+            </View>
+          </TouchableOpacity>
+
+          {/* <View className="flex-row items-center justify-between mb-5 px-1">
+            <Text className="text-[11px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px]">Quick Actions</Text>
+          </View>
+
+          <View className="flex-row justify-between mb-4">
+            <TouchableOpacity className="flex-1 mr-2.5 bg-surface p-3.5 rounded-2xl border border-gray-50 items-center">
+              <View className="w-10 h-10 bg-accent/10 rounded-xl items-center justify-center mb-2.5">
+                <MaterialCommunityIcons name="history" size={20} color={Colors.accent} />
+              </View>
+              <Text className="text-[11px] font-inter-bold text-text">Activity</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="flex-1 mx-1.5 bg-surface p-3.5 rounded-2xl border border-gray-50 items-center">
+              <View className="w-10 h-10 bg-warning/10 rounded-xl items-center justify-center mb-2.5">
+                <Ionicons name="heart" size={20} color={Colors.warning} />
+              </View>
+              <Text className="text-[11px] font-inter-bold text-text">Saved</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="flex-1 ml-2.5 bg-surface p-3.5 rounded-2xl border border-gray-50 items-center">
+              <View className="w-10 h-10 bg-primary/10 rounded-xl items-center justify-center mb-2.5">
+                <Ionicons name="help-buoy" size={20} color={Colors.primary} />
+              </View>
+              <Text className="text-[11px] font-inter-bold text-text">Help</Text>
+            </TouchableOpacity>
+          </View> */}
         </ScrollView>
-      </View>
+      </Animated.View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  mapBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.background,
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 280,
-  },
-  mapGrid: {
-    position: 'absolute',
-    top: 200,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  mapGridLine: {
-    height: 1,
-    backgroundColor: '#D1D5DB',
-    marginVertical: 25,
-    opacity: 0.3,
-  },
-  floatingPin: {
-    position: 'absolute',
-    zIndex: 2,
-  },
-  mapDot: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(27, 110, 243, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapDotInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.primary,
-    opacity: 0.6,
-  },
-  mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(245, 247, 250, 0.3)',
-    top: 280,
-  },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  greetingContainer: {
-    marginLeft: 12,
-  },
-  greetingText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  userName: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.surface,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  notifBadgeText: {
-    fontSize: 9,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.surface,
-  },
-  activeBanner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 10,
-  },
-  activeBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: Colors.primaryLight,
-  },
-  activeBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  pulseIndicator: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseGlow: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.primaryGlow,
-  },
-  pulseCore: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.primary,
-  },
-  activeBannerTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-  },
-  activeBannerStatus: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.primary,
-    marginTop: 2,
-  },
-  bottomSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  searchBarContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.cardBorder,
-  },
-  searchIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
-  },
-  quickLocations: {
-    paddingHorizontal: 0,
-  },
-  quickLocationsTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
-    paddingHorizontal: 20,
-    marginBottom: 10,
-  },
-  quickLocationsList: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  quickLocationChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  quickLocationText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.text,
-    maxWidth: 120,
-  },
-});
+const styles = StyleSheet.create({});

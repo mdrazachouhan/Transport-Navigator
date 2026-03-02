@@ -28,7 +28,7 @@ function ShimmerButton({ onPress, disabled, isLoading }: { onPress: () => void; 
       Animated.timing(shimmerAnim, {
         toValue: 1,
         duration: 2000,
-        useNativeDriver: false,
+        useNativeDriver: true,
       })
     );
     loop.start();
@@ -45,33 +45,31 @@ function ShimmerButton({ onPress, disabled, isLoading }: { onPress: () => void; 
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
-      style={[disabled && styles.acceptButtonDisabled]}
+      className={`${disabled ? 'opacity-70' : ''}`}
     >
       <LinearGradient
         colors={[Colors.success, '#059669']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.acceptButton}
+        className="rounded-xl py-3 flex-row items-center justify-center space-x-2 overflow-hidden shadow-lg shadow-success/20"
       >
         {isLoading ? (
           <ActivityIndicator size="small" color={Colors.surface} />
         ) : (
           <>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.surface} />
-            <Text style={styles.acceptButtonText}>Accept Ride</Text>
+            <Ionicons name="checkmark-circle" size={18} color={Colors.surface} />
+            <Text className="text-sm font-inter-semibold text-surface">Accept Ride</Text>
           </>
         )}
         <Animated.View
-          style={[
-            styles.shimmerOverlay,
-            { transform: [{ translateX: shimmerTranslate }] },
-          ]}
+          className="absolute top-0 bottom-0 w-32"
+          style={[{ transform: [{ translateX: shimmerTranslate }] }]}
         >
           <LinearGradient
-            colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+            colors={['transparent', 'rgba(255,255,255,0.2)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
+            className="flex-1"
           />
         </Animated.View>
       </LinearGradient>
@@ -92,147 +90,134 @@ function AnimatedRequestCard({
   onAccept: (id: string) => void;
   getVehicleIcon: (type: string) => string;
 }) {
-  const slideAnim = useRef(new Animated.Value(40)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const badgeBounce = useRef(new Animated.Value(0.5)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const badgeBounce = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const delay = index * 80;
+    const delay = index * 100;
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        delay,
-        useNativeDriver: false,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 400,
-        delay,
-        useNativeDriver: false,
-      }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, delay, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 600, delay, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 40, delay, useNativeDriver: true })
     ]).start(() => {
-      Animated.spring(badgeBounce, {
-        toValue: 1,
-        friction: 4,
-        tension: 200,
-        useNativeDriver: false,
-      }).start();
+      Animated.spring(badgeBounce, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }).start();
     });
   }, []);
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
-  };
-
   return (
     <Animated.View
-      style={[
-        styles.card,
-        {
-          opacity: opacityAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim },
-          ],
-        },
-      ]}
+      className="bg-surface rounded-2xl p-4 mb-4 border border-gray-100 shadow-xl shadow-black/5"
+      style={[{ opacity: opacityAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }]}
     >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-      >
-        <View style={styles.cardHeader}>
-          <Animated.View style={[styles.vehicleBadge, { transform: [{ scale: badgeBounce }] }]}>
-            <MaterialCommunityIcons
-              name={getVehicleIcon(item.vehicleType) as any}
-              size={18}
-              color={Colors.primary}
-            />
-            <Text style={styles.vehicleText}>
-              {item.vehicleType.charAt(0).toUpperCase() + item.vehicleType.slice(1)}
-            </Text>
-          </Animated.View>
-          <Text style={styles.cardPrice}>{'\u20B9'}{item.totalPrice}</Text>
+      <View className="flex-row items-center justify-between mb-4">
+        <Animated.View
+          className="flex-row items-center px-2.5 py-1.5 bg-primary/10 rounded-lg"
+          style={[{ transform: [{ scale: badgeBounce }] }]}
+        >
+          <MaterialCommunityIcons name={getVehicleIcon(item.vehicleType) as any} size={18} color={Colors.primary} />
+          <Text className="ml-1.5 text-[10px] font-inter-bold text-primary uppercase tracking-wider">
+            {item.vehicleType}
+          </Text>
+        </Animated.View>
+        <View className="items-end">
+          <Text className="text-xl font-inter-bold text-text">₹{item.totalPrice}</Text>
+          <Text className="text-[9px] font-inter-medium text-text-tertiary uppercase tracking-wider mt-0.5">Estimated Fare</Text>
         </View>
+      </View>
 
-        <View style={styles.cardLocations}>
-          <View style={styles.locationRow}>
-            <View style={styles.locationDot}>
-              <View style={[styles.dot, { backgroundColor: Colors.success }]} />
+      <View className="mb-5 bg-gray-50/50 rounded-xl p-3.5 border border-gray-50">
+        <View className="flex-row items-start">
+          <View className="items-center mr-3.5 pt-1">
+            <View className="w-3.5 h-3.5 rounded-full bg-success/20 items-center justify-center">
+              <View className="w-1.5 h-1.5 rounded-full bg-success" />
             </View>
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationLabel}>Pickup</Text>
-              <Text style={styles.locationName} numberOfLines={1}>{item.pickup.name}</Text>
-              <Text style={styles.locationArea} numberOfLines={1}>{item.pickup.area}</Text>
+            <View className="w-0.5 h-8 bg-gray-200 my-1 border-dashed border-l border-gray-300" />
+            <View className="w-3.5 h-3.5 rounded-full bg-danger/20 items-center justify-center">
+              <View className="w-1.5 h-1.5 rounded-full bg-danger" />
             </View>
           </View>
-          <View style={styles.locationConnector} />
-          <View style={styles.locationRow}>
-            <View style={styles.locationDot}>
-              <View style={[styles.dot, { backgroundColor: Colors.danger }]} />
+          <View className="flex-1">
+            <View className="mb-4">
+              <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-0.5">Pickup</Text>
+              <Text className="text-[13px] font-inter-semibold text-text" numberOfLines={1}>{item.pickup.name}</Text>
+              <Text className="text-[11px] font-inter text-text-secondary mt-0.5" numberOfLines={1}>{item.pickup.area}</Text>
             </View>
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationLabel}>Delivery</Text>
-              <Text style={styles.locationName} numberOfLines={1}>{item.delivery.name}</Text>
-              <Text style={styles.locationArea} numberOfLines={1}>{item.delivery.area}</Text>
+            <View>
+              <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-0.5">Drop</Text>
+              <Text className="text-[13px] font-inter-semibold text-text" numberOfLines={1}>{item.delivery.name}</Text>
+              <Text className="text-[11px] font-inter text-text-secondary mt-0.5" numberOfLines={1}>{item.delivery.area}</Text>
             </View>
           </View>
         </View>
+      </View>
 
-        <View style={styles.cardDetails}>
-          <View style={styles.detailItem}>
-            <Feather name="navigation" size={14} color={Colors.textSecondary} />
-            <Text style={styles.detailText}>{item.distance} km</Text>
+      <View className="flex-row items-center justify-between mb-5 px-0.5">
+        <View className="flex-row items-center space-x-4">
+          <View className="flex-row items-center">
+            <View className="w-6 h-6 rounded-lg bg-gray-100 items-center justify-center mr-2">
+              <Feather name="navigation" size={12} color={Colors.primary} />
+            </View>
+            <Text className="text-[13px] font-inter-bold text-text">{item.distance} <Text className="text-text-tertiary font-inter-medium text-[11px]">km</Text></Text>
           </View>
-          <View style={styles.detailItem}>
-            <Feather name="clock" size={14} color={Colors.textSecondary} />
-            <Text style={styles.detailText}>{item.estimatedTime} min</Text>
+          <View className="flex-row items-center ml-4">
+            <View className="w-6 h-6 rounded-lg bg-gray-100 items-center justify-center mr-2">
+              <Feather name="clock" size={12} color={Colors.success} />
+            </View>
+            <Text className="text-[13px] font-inter-bold text-text">{item.estimatedTime} <Text className="text-text-tertiary font-inter-medium text-[11px]">min</Text></Text>
           </View>
         </View>
+      </View>
 
-        <ShimmerButton
-          onPress={() => onAccept(item.id)}
-          disabled={acceptingId === item.id}
-          isLoading={acceptingId === item.id}
-        />
-      </TouchableOpacity>
+      <ShimmerButton
+        onPress={() => onAccept(item.id)}
+        disabled={acceptingId === item.id}
+        isLoading={acceptingId === item.id}
+      />
     </Animated.View>
   );
 }
 
-function AnimatedEmptyState() {
+function AnimatedEmptyState({ isOnline }: { isOnline: boolean }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: false,
-    }).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: -8, duration: 2000, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
 
   return (
-    <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
-      <View style={styles.emptyIconContainer}>
-        <MaterialCommunityIcons name="car-off" size={48} color={Colors.textTertiary} />
-      </View>
-      <Text style={styles.emptyTitle}>No pending requests</Text>
-      <Text style={styles.emptySubtitle}>New ride requests will appear here</Text>
+    <Animated.View className="flex-1 items-center justify-center px-10" style={[{ opacity: fadeAnim }]}>
+      <Animated.View
+        className="w-24 h-24 rounded-full bg-primary/5 items-center justify-center mb-6"
+        style={{ transform: [{ translateY: floatAnim }] }}
+      >
+        <LinearGradient
+          colors={isOnline ? [Colors.primary + '20', Colors.primary + '05'] : ['#9CA3AF40', '#9CA3AF10']}
+          className="w-18 h-18 rounded-full items-center justify-center"
+        >
+          <MaterialCommunityIcons
+            name={isOnline ? "car-connected" : "wifi-off"}
+            size={44}
+            color={isOnline ? Colors.primary : Colors.textTertiary}
+          />
+        </LinearGradient>
+      </Animated.View>
+      <Text className="text-xl font-inter-bold text-text mb-2 text-center">
+        {isOnline ? 'Searching for rides...' : 'You are Offline'}
+      </Text>
+      <Text className="text-[13px] font-inter text-text-secondary text-center leading-5 opacity-70 px-4">
+        {isOnline
+          ? "We'll notify you as soon as someone nearby requests a ride. Keep the app open for better results!"
+          : "Go back to the dashboard and toggle 'Go Online' to start receiving new ride requests in your area."}
+      </Text>
     </Animated.View>
   );
 }
@@ -246,17 +231,15 @@ export default function DriverRequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const webBottom = Platform.OS === 'web' ? 34 : 0;
-  const topInset = insets.top + webTop;
-  const bottomInset = insets.bottom + webBottom;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   const loadPendingBookings = useCallback(async () => {
     try {
       const result = await fetchPendingBookings();
       setPendingBookings(result);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to load requests');
+      // Background silent poll
     } finally {
       setLoading(false);
     }
@@ -264,21 +247,15 @@ export default function DriverRequestsScreen() {
 
   useEffect(() => {
     loadPendingBookings();
-    const interval = setInterval(() => {
-      loadPendingBookings();
-    }, 5000);
+    const interval = setInterval(() => { loadPendingBookings(); }, 5000);
 
     let socket: any;
     try {
       const apiUrl = getApiUrl();
       socket = io(apiUrl, { transports: ['websocket', 'polling'], path: '/socket.io' });
-      socket.on('booking:new', () => {
-        loadPendingBookings();
-      });
-      socket.on('booking:updated', () => {
-        loadPendingBookings();
-      });
-    } catch (e) {}
+      socket.on('booking:new', () => { loadPendingBookings(); });
+      socket.on('booking:updated', () => { loadPendingBookings(); });
+    } catch (e) { }
 
     return () => {
       clearInterval(interval);
@@ -291,15 +268,12 @@ export default function DriverRequestsScreen() {
     try {
       const result = await acceptBooking(bookingId);
       if (result.success) {
-        router.push({
-          pathname: '/driver/active-ride' as any,
-          params: { bookingId },
-        });
+        router.push({ pathname: '/driver/active-ride' as any, params: { bookingId } });
       } else {
-        Alert.alert('Error', result.error || 'Failed to accept booking');
+        Alert.alert('In Progress', result.error || 'This ride is no longer available');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to accept booking');
+      Alert.alert('Error', 'Something went wrong while accepting the ride');
     } finally {
       setAcceptingId(null);
     }
@@ -307,260 +281,63 @@ export default function DriverRequestsScreen() {
 
   const getVehicleIcon = (type: string) => {
     switch (type) {
-      case 'auto':
-        return 'rickshaw';
-      case 'tempo':
-        return 'van-utility';
-      case 'truck':
-        return 'truck';
-      default:
-        return 'truck';
+      case 'auto': return 'rickshaw';
+      case 'tempo': return 'van-utility';
+      case 'truck': return 'truck';
+      default: return 'truck';
     }
   };
 
-  const renderBookingCard = ({ item, index }: { item: BookingData; index: number }) => (
-    <AnimatedRequestCard
-      item={item}
-      index={index}
-      acceptingId={acceptingId}
-      onAccept={handleAccept}
-      getVehicleIcon={getVehicleIcon}
-    />
-  );
-
-  const renderEmpty = () => <AnimatedEmptyState />;
-
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-[#FDFDFD]">
       <LinearGradient
-        colors={[Colors.navyDark, Colors.navy]}
-        style={[styles.header, { paddingTop: topInset + 12 }]}
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="px-6 pb-6 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={Colors.surface} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ride Requests</Text>
-        <View style={styles.headerSpacer} />
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/10"
+            onPress={() => router.back()}
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
+          </TouchableOpacity>
+          <View className="items-center">
+            <Text className="text-lg font-inter-bold text-surface">New Requests</Text>
+            <View className="flex-row items-center mt-1">
+              <View className="w-1 h-1 rounded-full bg-accent mr-2" />
+              <Text className="text-[9px] font-inter-bold text-accent uppercase tracking-[1.5px]">Live Radar</Text>
+            </View>
+          </View>
+          <View className="w-10" />
+        </View>
       </LinearGradient>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
+        <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={Colors.primary} />
+          <Text className="mt-4 text-text-tertiary font-inter-medium text-xs">Scanning for requests...</Text>
         </View>
       ) : (
         <FlatList
           data={pendingBookings}
-          renderItem={renderBookingCard}
+          renderItem={({ item, index }) => (
+            <AnimatedRequestCard
+              item={item}
+              index={index}
+              acceptingId={acceptingId}
+              onAccept={handleAccept}
+              getVehicleIcon={getVehicleIcon}
+            />
+          )}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: bottomInset + 20 },
-            pendingBookings.length === 0 && styles.listContentEmpty,
-          ]}
-          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={{ padding: 18, paddingBottom: bottomInset + 20, flexGrow: 1 }}
+          ListEmptyComponent={<AnimatedEmptyState isOnline={user?.isOnline ?? false} />}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={pendingBookings.length > 0}
         />
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    overflow: 'hidden',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.surface,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    padding: 20,
-  },
-  listContentEmpty: {
-    flex: 1,
-  },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  vehicleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  vehicleText: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.primary,
-  },
-  cardPrice: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-  },
-  cardLocations: {
-    marginBottom: 14,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  locationDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  locationConnector: {
-    width: 2,
-    height: 14,
-    backgroundColor: Colors.border,
-    marginLeft: 11,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textTertiary,
-  },
-  locationName: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.text,
-    marginTop: 1,
-  },
-  locationArea: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-  cardDetails: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-    marginBottom: 14,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  detailText: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.textSecondary,
-  },
-  acceptButton: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    overflow: 'hidden',
-  },
-  acceptButtonDisabled: {
-    opacity: 0.7,
-  },
-  acceptButtonText: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.surface,
-  },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 120,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+const styles = StyleSheet.create({});

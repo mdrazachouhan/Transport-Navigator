@@ -1,61 +1,118 @@
-import React, { useRef, useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import React, { useRef, useEffect, useState } from 'react';
+import { StyleSheet, Platform, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 import Colors from '@/constants/colors';
-import { INDORE_REGION } from '@/lib/locations';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 interface RouteMapProps {
   pickup: { name: string; lat: number; lng: number };
   delivery: { name: string; lat: number; lng: number };
+  driverLocation?: { latitude: number; longitude: number } | null;
+  showDriverToPickup?: boolean;
 }
 
-export default function RouteMap({ pickup, delivery }: RouteMapProps) {
+export default function RouteMap({ pickup, delivery, driverLocation, showDriverToPickup }: RouteMapProps) {
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      mapRef.current?.fitToCoordinates(
-        [
-          { latitude: pickup.lat, longitude: pickup.lng },
-          { latitude: delivery.lat, longitude: delivery.lng },
-        ],
-        { edgePadding: { top: 80, right: 60, bottom: 200, left: 60 }, animated: true }
-      );
-    }, 300);
-  }, [pickup, delivery]);
+    if (!GOOGLE_MAPS_API_KEY) {
+      const coords = [
+        { latitude: pickup.lat, longitude: pickup.lng },
+        { latitude: delivery.lat, longitude: delivery.lng },
+      ];
+      if (driverLocation) coords.push(driverLocation);
 
-  const routeCoords = [
-    { latitude: pickup.lat, longitude: pickup.lng },
-    { latitude: (pickup.lat + delivery.lat) / 2 + 0.003, longitude: (pickup.lng + delivery.lng) / 2 + 0.002 },
-    { latitude: delivery.lat, longitude: delivery.lng },
-  ];
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(coords, {
+          edgePadding: { top: 80, right: 60, bottom: 200, left: 60 },
+          animated: true
+        });
+      }, 300);
+    }
+  }, [pickup, delivery, driverLocation]);
+
+  const origin = showDriverToPickup && driverLocation
+    ? driverLocation
+    : { latitude: pickup.lat, longitude: pickup.lng };
+
+  const destination = { latitude: delivery.lat, longitude: delivery.lng };
 
   return (
     <MapView
       ref={mapRef}
       style={StyleSheet.absoluteFill}
-      provider={PROVIDER_DEFAULT}
-      initialRegion={INDORE_REGION}
-      showsUserLocation={false}
+      provider={PROVIDER_GOOGLE}
+      initialRegion={{
+        latitude: (pickup.lat + delivery.lat) / 2,
+        longitude: (pickup.lng + delivery.lng) / 2,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }}
+      showsUserLocation={!!driverLocation}
       showsMyLocationButton={false}
       toolbarEnabled={false}
     >
       <Marker
         coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
-        title={pickup.name}
+        title="Pickup"
+        description={pickup.name}
         pinColor={Colors.success}
       />
       <Marker
         coordinate={{ latitude: delivery.lat, longitude: delivery.lng }}
-        title={delivery.name}
+        title="Drop-off"
+        description={delivery.name}
         pinColor={Colors.danger}
       />
-      <Polyline
-        coordinates={routeCoords}
-        strokeColor={Colors.primary}
-        strokeWidth={4}
-        lineDashPattern={[0]}
-      />
+
+      {driverLocation && (
+        <Marker
+          coordinate={driverLocation}
+          title="My Location"
+          anchor={{ x: 0.5, y: 0.5 }}
+        >
+          <MaterialCommunityIcons name="navigation" size={28} color={Colors.primary} />
+        </Marker>
+      )}
+
+      {GOOGLE_MAPS_API_KEY ? (
+        <>
+          <MapViewDirections
+            origin={origin}
+            destination={destination}
+            apikey={GOOGLE_MAPS_API_KEY}
+            strokeWidth={4}
+            strokeColor={Colors.primary}
+            onReady={(result) => {
+              mapRef.current?.fitToCoordinates(result.coordinates, {
+                edgePadding: { right: 60, bottom: 350, left: 60, top: 80 },
+              });
+            }}
+          />
+          {showDriverToPickup && driverLocation && (
+            <MapViewDirections
+              origin={driverLocation}
+              destination={{ latitude: pickup.lat, longitude: pickup.lng }}
+              apikey={GOOGLE_MAPS_API_KEY}
+              strokeWidth={3}
+              strokeColor={Colors.success}
+              lineDashPattern={[5, 5]}
+            />
+          )}
+        </>
+      ) : (
+        <Polyline
+          coordinates={[
+            driverLocation || { latitude: pickup.lat, longitude: pickup.lng },
+            { latitude: delivery.lat, longitude: delivery.lng },
+          ]}
+          strokeColor={Colors.primary}
+          strokeWidth={4}
+        />
+      )}
     </MapView>
   );
 }

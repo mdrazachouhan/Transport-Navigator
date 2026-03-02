@@ -36,7 +36,7 @@ interface BookingContextValue {
   loading: boolean;
   fetchBookings: () => Promise<void>;
   fetchPendingBookings: () => Promise<BookingData[]>;
-  createBooking: (data: { pickup: any; delivery: any; vehicleType: string; paymentMethod?: string }) => Promise<{ success: boolean; booking?: BookingData; error?: string }>;
+  createBooking: (data: { pickup: any; delivery: any; vehicleType: string; totalPrice: number; distance: number; paymentMethod?: string }) => Promise<{ success: boolean; booking?: BookingData; error?: string }>;
   acceptBooking: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
   startTrip: (bookingId: string, otp: string) => Promise<{ success: boolean; error?: string }>;
   completeTrip: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
@@ -81,7 +81,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     return data.bookings || [];
   }, [apiCall]);
 
-  const createBooking = useCallback(async (params: { pickup: any; delivery: any; vehicleType: string; paymentMethod?: string }) => {
+  const createBooking = useCallback(async (params: { pickup: any; delivery: any; vehicleType: string; totalPrice: number; distance: number; paymentMethod?: string }) => {
     const data = await apiCall('/api/bookings', 'POST', params);
     if (data.booking) {
       setBookings(prev => [data.booking, ...prev]);
@@ -139,7 +139,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
 
   const getActiveBooking = useCallback(() =>
     bookings.find(b => ['pending', 'accepted', 'in_progress'].includes(b.status)),
-  [bookings]);
+    [bookings]);
 
   const value = useMemo(() => ({
     bookings, loading, fetchBookings, fetchPendingBookings, createBooking,

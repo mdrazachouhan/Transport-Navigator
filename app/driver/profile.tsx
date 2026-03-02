@@ -1,12 +1,44 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert, ActivityIndicator, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiUrl } from '@/lib/query-client';
+
+function ProfileField({ label, value, icon, isLocked = false, onChangeText, placeholder }: any) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <View className="mb-5">
+      <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-2.5 ml-1">{label}</Text>
+      <View
+        className={`flex-row items-center px-4 rounded-2xl border ${isFocused ? 'border-primary bg-white shadow-sm' : 'border-gray-50 bg-gray-50/50'}`}
+        style={{ height: 54 }}
+      >
+        <View className="mr-3.5">
+          <Ionicons name={icon} size={18} color={isFocused ? Colors.primary : Colors.divider} />
+        </View>
+        {isLocked ? (
+          <Text className="flex-1 text-sm font-inter-semibold text-text-secondary">{value}</Text>
+        ) : (
+          <TextInput
+            className="flex-1 text-sm font-inter-semibold text-text"
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholderTextColor="rgba(0,0,0,0.2)"
+          />
+        )}
+        {isLocked && <Ionicons name="lock-closed" size={14} color={Colors.divider} />}
+      </View>
+    </View>
+  );
+}
 
 export default function DriverProfileScreen() {
   const router = useRouter();
@@ -15,11 +47,24 @@ export default function DriverProfileScreen() {
   const [name, setName] = useState(user?.name || '');
   const [saving, setSaving] = useState(false);
 
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const topInset = insets.top + webTop;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
+
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacityAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true })
+    ]).start();
+  }, []);
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      Alert.alert('Required', 'Please enter your name');
+      return;
+    }
     setSaving(true);
     try {
       const baseUrl = getApiUrl();
@@ -31,127 +76,154 @@ export default function DriverProfileScreen() {
       const data = await res.json();
       if (data.user) {
         updateUser({ name: data.user.name });
-        Alert.alert('Success', 'Profile updated');
+        Alert.alert('Profile Updated', 'Your professional driver profile has been updated.');
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not update profile');
+      Alert.alert('Error', 'We could not update your profile. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const vehicleIcon = user?.vehicleType === 'auto' ? 'rickshaw' : user?.vehicleType === 'tempo' ? 'van-utility' : 'truck';
+  const vehicleLabel = user?.vehicleType ? user.vehicleType.charAt(0).toUpperCase() + user.vehicleType.slice(1) : 'N/A';
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.surface} />
+    <View className="flex-1 bg-[#FDFDFD]">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-12 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center px-6 mb-8">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={{ width: 40 }} />
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Driver Identity</Text>
         </View>
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarLarge}>
-            <Ionicons name="person" size={40} color={Colors.surface} />
+
+        <View className="items-center">
+          <View className="w-24 h-24 rounded-[32px] bg-white/10 items-center justify-center border border-white/10 shadow-2xl relative">
+            <LinearGradient
+              colors={['#1B3A5C', '#132743']}
+              className="w-full h-full rounded-[32px] items-center justify-center"
+            >
+              <FontAwesome5 name="user-tie" size={40} color={Colors.surface} />
+            </LinearGradient>
+            <TouchableOpacity className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-accent border-[3px] border-navyMid items-center justify-center shadow-lg">
+              <Ionicons name="camera" size={16} color="#FFF" />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.avatarName}>{user?.name || 'Driver'}</Text>
-          <Text style={styles.avatarRole}>Driver</Text>
+          <Text className="text-xl font-inter-bold text-surface mt-5">{user?.name || 'Driver'}</Text>
+          <View className="bg-accent/20 px-2.5 py-1 rounded-full mt-2 border border-accent/20">
+            <Text className="text-[9px] font-inter-bold text-accent uppercase tracking-widest">Verified Driver • {vehicleLabel}</Text>
+          </View>
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} contentContainerStyle={{ padding: 20 }}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Full Name</Text>
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Enter your name" placeholderTextColor={Colors.textTertiary} />
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Phone Number</Text>
-            <View style={styles.readOnly}>
-              <Text style={styles.readOnlyText}>{user?.phone || ''}</Text>
-              <Ionicons name="lock-closed-outline" size={16} color={Colors.textTertiary} />
-            </View>
-          </View>
-        </View>
+      <Animated.ScrollView
+        className="flex-1 -mt-8"
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottomInset + 40 }}
+        style={{ opacity: opacityAnim, transform: [{ translateY: slideAnim }] }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="bg-white rounded-[32px] p-6 shadow-2xl shadow-black/5 border border-gray-50 mb-5">
+          <Text className="text-[10px] font-inter-bold text-primary uppercase tracking-[2px] mb-6 pb-2.5 border-b border-gray-50">Official Details</Text>
 
-        <View style={[styles.card, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitle}>Vehicle Details</Text>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Vehicle Type</Text>
-            <View style={styles.readOnly}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <MaterialCommunityIcons name={vehicleIcon as any} size={20} color={Colors.primary} />
-                <Text style={styles.readOnlyText}>{user?.vehicleType ? user.vehicleType.charAt(0).toUpperCase() + user.vehicleType.slice(1) : 'N/A'}</Text>
+          <ProfileField
+            label="Driver Name"
+            value={name}
+            onChangeText={setName}
+            icon="person-outline"
+            placeholder="Ex. Rahul Kumar"
+          />
+
+          <ProfileField
+            label="Registered Mobile"
+            value={user?.phone || ''}
+            icon="call-outline"
+            isLocked={true}
+          />
+
+          <View className="mb-5">
+            <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-2.5 ml-1">Assigned Vehicle</Text>
+            <View className="flex-row items-center p-4 bg-gray-50/50 rounded-2xl border border-gray-50">
+              <View className="w-10 h-10 rounded-xl bg-white items-center justify-center mr-3.5 shadow-sm">
+                <MaterialCommunityIcons name={vehicleIcon as any} size={22} color={Colors.primary} />
               </View>
+              <View className="flex-1">
+                <Text className="text-sm font-inter-bold text-text">{vehicleLabel}</Text>
+                <Text className="text-[10px] font-inter-medium text-text-tertiary uppercase tracking-wider">{user?.vehicleNumber || 'Reg No. N/A'}</Text>
+              </View>
+              <Ionicons name="lock-closed" size={14} color={Colors.divider} />
             </View>
           </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Vehicle Number</Text>
-            <View style={styles.readOnly}>
-              <Text style={styles.readOnlyText}>{user?.vehicleNumber || 'N/A'}</Text>
+
+          <ProfileField
+            label="License ID"
+            value={user?.licenseNumber || 'Not Provided'}
+            icon="card-outline"
+            isLocked={true}
+          />
+
+          <TouchableOpacity
+            className="mt-5 h-14 rounded-2xl overflow-hidden shadow-2xl shadow-primary/20"
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              className="flex-1 items-center justify-center flex-row"
+            >
+              {saving ? (
+                <ActivityIndicator color={Colors.surface} />
+              ) : (
+                <>
+                  <Text className="text-sm font-inter-bold text-surface mr-2.5">Professional Sync</Text>
+                  <Feather name="shield" size={16} color="#FFF" />
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        <View className="bg-surface rounded-2xl p-5 border border-gray-50 shadow-sm mb-6">
+          <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-5 ml-1">Terminal Performance</Text>
+          <View className="flex-row items-center justify-around">
+            <View className="items-center">
+              <Text className="text-xl font-inter-bold text-text">{user?.totalTrips ?? 0}</Text>
+              <Text className="text-[8px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">Jobs</Text>
             </View>
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>License Number</Text>
-            <View style={styles.readOnly}>
-              <Text style={styles.readOnlyText}>{user?.licenseNumber || 'N/A'}</Text>
+            <View className="w-[1px] h-8 bg-gray-100" />
+            <View className="items-center">
+              <Text className="text-xl font-inter-bold text-text">₹{user?.totalEarnings ?? 0}</Text>
+              <Text className="text-[8px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">Wallet</Text>
+            </View>
+            <View className="w-[1px] h-8 bg-gray-100" />
+            <View className="items-center">
+              <View className="flex-row items-center">
+                <Text className="text-xl font-inter-bold text-text">{user?.rating ? user.rating.toFixed(1) : '5.0'}</Text>
+                <Ionicons name="star" size={12} color={Colors.warning} style={{ marginLeft: 2 }} />
+              </View>
+              <Text className="text-[8px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">Rating</Text>
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitle}>Statistics</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.totalTrips ?? 0}</Text>
-              <Text style={styles.statLabel}>Total Trips</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{'\u20B9'}{user?.totalEarnings ?? 0}</Text>
-              <Text style={styles.statLabel}>Earnings</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.rating ? user.rating.toFixed(1) : '0.0'}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-          </View>
+        <View className="px-5 items-center mb-8">
+          <Text className="text-[11px] font-inter-medium text-text-tertiary text-center leading-4 opacity-60">
+            Driver identity details are verified by the administrator. Contact support for vehicle replacements.
+          </Text>
         </View>
-
-        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
-          <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 24 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  avatarSection: { alignItems: 'center' },
-  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 10 },
-  avatarName: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.surface },
-  avatarRole: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.5)', marginTop: 2 },
-  content: { flex: 1 },
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.cardBorder },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 16 },
-  field: { marginBottom: 16 },
-  fieldLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { backgroundColor: Colors.background, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.cardBorder },
-  readOnly: { backgroundColor: Colors.background, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: Colors.cardBorder },
-  readOnlyText: { fontSize: 15, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text },
-  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 4 },
-  statDivider: { width: 1, height: 40, backgroundColor: Colors.divider },
-  saveBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-});
+const styles = StyleSheet.create({});

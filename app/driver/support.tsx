@@ -23,59 +23,87 @@ const TOPICS = [
 export default function DriverSupportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const topInset = insets.top + webTop;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.surface} />
+    <View className="flex-1 bg-[#FDFDFD]">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-10 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center px-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Support</Text>
-          <View style={{ width: 40 }} />
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Terminal Support</Text>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <View style={styles.contactCard}>
-          <Text style={styles.contactTitle}>Get in Touch</Text>
-          <View style={styles.contactList}>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: bottomInset + 40 }}
+        showsVerticalScrollIndicator={false}
+        className="flex-1 -mt-5"
+      >
+        <View className="bg-white rounded-[28px] p-5 border border-gray-50 shadow-sm mb-8">
+          <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-4 ml-1">Live Channels</Text>
+          <View className="space-y-2.5">
             {SUPPORT_OPTIONS.map((item, i) => (
-              <TouchableOpacity key={i} style={styles.contactItem} onPress={() => Linking.openURL(item.action)} activeOpacity={0.7}>
-                <View style={styles.contactIcon}>
-                  <Ionicons name={item.icon as any} size={22} color={Colors.primary} />
+              <TouchableOpacity
+                key={i}
+                className="flex-row items-center bg-gray-50/50 rounded-2xl p-3 border border-gray-50"
+                onPress={() => Linking.openURL(item.action)}
+                activeOpacity={0.7}
+              >
+                <View className="w-10 h-10 rounded-xl bg-primary/5 items-center justify-center">
+                  <Ionicons name={item.icon as any} size={18} color={Colors.primary} />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.contactLabel}>{item.label}</Text>
-                  <Text style={styles.contactDesc}>{item.desc}</Text>
+                <View className="flex-1 ml-3.5">
+                  <Text className="text-[13px] font-inter-bold text-text">{item.label}</Text>
+                  <Text className="text-[11px] font-inter-medium text-text-tertiary mt-0.5">{item.desc}</Text>
                 </View>
-                <Ionicons name="open-outline" size={16} color={Colors.textTertiary} />
+                <View className="w-7 h-7 rounded-full bg-white items-center justify-center shadow-sm">
+                  <Ionicons name="chevron-forward" size={12} color={Colors.textTertiary} />
+                </View>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Help Topics</Text>
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-5 ml-1">Common Inquiries</Text>
         {TOPICS.map((item, i) => (
-          <View key={i} style={styles.topicCard}>
-            <View style={styles.topicIcon}>
-              <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
+          <View
+            key={i}
+            className="flex-row items-start bg-white rounded-2xl p-4 mb-3 border border-gray-50 shadow-sm"
+          >
+            <View className="w-9 h-9 rounded-xl bg-primary/5 items-center justify-center">
+              <Ionicons name={item.icon as any} size={18} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.topicTitle}>{item.title}</Text>
-              <Text style={styles.topicDesc}>{item.desc}</Text>
+            <View className="flex-1 ml-4 pt-0.5">
+              <Text className="text-[14px] font-inter-bold text-text mb-1">{item.title}</Text>
+              <Text className="text-[12px] font-inter-medium text-text-tertiary leading-5">{item.desc}</Text>
             </View>
           </View>
         ))}
 
-        <View style={styles.hoursCard}>
-          <Ionicons name="time-outline" size={20} color={Colors.textSecondary} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.hoursTitle}>Driver Support Hours</Text>
-            <Text style={styles.hoursText}>24/7 for active ride issues</Text>
-            <Text style={styles.hoursText}>Mon-Sat 9AM-8PM for general queries</Text>
+        <View className="flex-row items-start mt-6 p-4 bg-surface rounded-2xl border border-gray-50">
+          <View className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center mr-3">
+            <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-[13px] font-inter-bold text-text mb-1.5">Dispatch Support Hours</Text>
+            <View className="flex-row items-center mb-1">
+              <View className="w-1.5 h-1.5 rounded-full bg-success mr-2" />
+              <Text className="text-[11px] font-inter-bold text-text-secondary">24/7 for active mission emergency</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-1.5 h-1.5 rounded-full bg-primary/40 mr-2" />
+              <Text className="text-[11px] font-inter-medium text-text-tertiary">Mon-Sat 09:00 - 20:00 for general queries</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -83,25 +111,4 @@ export default function DriverSupportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  contactCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 24 },
-  contactTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 14 },
-  contactList: { gap: 10 },
-  contactItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 12, padding: 14, gap: 14 },
-  contactIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  contactLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  contactDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 12 },
-  topicCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder, gap: 14 },
-  topicIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  topicTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
-  topicDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-  hoursCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 20, padding: 16, backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder },
-  hoursTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 4 },
-  hoursText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 },
-});
+const styles = StyleSheet.create({});

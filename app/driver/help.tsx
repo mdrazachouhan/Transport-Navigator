@@ -25,12 +25,22 @@ function FAQItem({ item }: { item: typeof FAQ_ITEMS[0] }) {
   };
 
   return (
-    <TouchableOpacity style={styles.faqCard} onPress={toggle} activeOpacity={0.7}>
-      <View style={styles.faqHeader}>
-        <Text style={styles.faqQuestion}>{item.q}</Text>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textTertiary} />
+    <TouchableOpacity
+      className="bg-white rounded-2xl p-4 mb-2.5 border border-gray-50 shadow-sm"
+      onPress={toggle}
+      activeOpacity={0.7}
+    >
+      <View className="flex-row items-center justify-between">
+        <Text className="text-[13px] font-inter-semibold text-text flex-1 mr-3 leading-5">{item.q}</Text>
+        <View className="w-7 h-7 rounded-full bg-gray-50 items-center justify-center">
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textTertiary} />
+        </View>
       </View>
-      {expanded && <Text style={styles.faqAnswer}>{item.a}</Text>}
+      {expanded && (
+        <Text className="text-[12px] font-inter-medium text-text-secondary leading-5 mt-3.5 pt-3.5 border-t border-gray-50">
+          {item.a}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -38,40 +48,45 @@ function FAQItem({ item }: { item: typeof FAQ_ITEMS[0] }) {
 export default function DriverHelpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const webTop = Platform.OS === 'web' ? 67 : 0;
-  const topInset = insets.top + webTop;
+  const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.surface} />
+    <View className="flex-1 bg-[#FDFDFD]">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-10 rounded-b-[32px] shadow-2xl"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center px-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help</Text>
-          <View style={{ width: 40 }} />
+          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Driver Assistance</Text>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: bottomInset + 40 }}
+        showsVerticalScrollIndicator={false}
+        className="flex-1 -mt-5"
+      >
+        <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-6 ml-1">Frequently Asked Questions</Text>
         {FAQ_ITEMS.map((item, i) => (
           <FAQItem key={i} item={item} />
         ))}
+
+        <View className="items-center mt-10 pt-4 px-6 border-t border-gray-100">
+          <Text className="text-[11px] font-inter-medium text-text-tertiary text-center leading-4 opacity-60">
+            For critical issues during an active mission, please use the SOS button on the job terminal.
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 16 },
-  faqCard: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder },
-  faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  faqQuestion: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1, marginRight: 8 },
-  faqAnswer: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.divider },
-});
+const styles = StyleSheet.create({});

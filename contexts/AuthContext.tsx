@@ -59,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function apiCall(path: string, body: any) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     try {
       const baseUrl = getApiUrl();
       const url = new URL(path, baseUrl);
@@ -67,13 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       console.log(`[API] ${path} response:`, JSON.stringify(data).substring(0, 200));
       return data;
     } catch (e: any) {
-      console.error(`[API] ${path} error:`, e.message);
-      return { success: false, error: 'Connection failed. Please check your internet and try again.' };
+      clearTimeout(timeoutId);
+      console.error(`[API] ${path} error:`, e.name === 'AbortError' ? 'Timeout' : e.message);
+      return { success: false, error: e.name === 'AbortError' ? 'Connection timeout. Is the server running?' : 'Connection failed. Please check your internet and try again.' };
     }
   }
 
@@ -125,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return;
     try {
       const baseUrl = getApiUrl();
-      const url = new URL('/api/auth/me', baseUrl);
+      const url = new URL('/api/users/me', baseUrl);
       const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.user) {

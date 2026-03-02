@@ -75,7 +75,3 @@ waitForPort = 8081
 ensurePreviewReachable = "/status"
 
 [userenv]
-
-[userenv.shared]
-MONGODB_URI = "mongodb+srv://raza:MdRazaChouhan@raza.4snf3fg.mongodb.net/transportgo?retryWrites=true&w=majority&appName=raza"
-EXPO_PUBLIC_APP_MODE = "driver"

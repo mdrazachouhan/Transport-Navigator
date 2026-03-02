@@ -27,34 +27,41 @@ export default function SupportScreen() {
   const topInset = insets.top + webTop;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.navyDark, Colors.navyMid]} style={[styles.header, { paddingTop: topInset + 16 }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+    <View className="flex-1 bg-background">
+      <LinearGradient
+        colors={[Colors.navyDark, Colors.navyMid]}
+        className="pb-4 rounded-b-2xl shadow-sm"
+        style={{ paddingTop: topInset + 12 }}
+      >
+        <View className="flex-row items-center justify-between px-5">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"
+          >
             <Ionicons name="arrow-back" size={24} color={Colors.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Support</Text>
-          <View style={{ width: 40 }} />
+          <Text className="text-lg font-inter-semibold text-surface">Support</Text>
+          <View className="w-10" />
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <View style={styles.contactCard}>
-          <Text style={styles.contactTitle}>Get in Touch</Text>
-          <View style={styles.contactList}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <View className="bg-surface rounded-2xl p-5 border border-gray-100 shadow-sm mb-6">
+          <Text className="text-base font-inter-semibold text-text mb-4">Get in Touch</Text>
+          <View className="space-y-2.5">
             {SUPPORT_OPTIONS.map((item, i) => (
               <TouchableOpacity
                 key={i}
-                style={styles.contactItem}
+                className="flex-row items-center bg-gray-50 rounded-xl p-3.5 space-x-3.5"
                 onPress={() => Linking.openURL(item.action)}
                 activeOpacity={0.7}
               >
-                <View style={styles.contactIcon}>
+                <View className="w-11 h-11 rounded-xl bg-primary-light items-center justify-center">
                   <Ionicons name={item.icon as any} size={22} color={Colors.primary} />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.contactLabel}>{item.label}</Text>
-                  <Text style={styles.contactDesc}>{item.desc}</Text>
+                <View className="flex-1">
+                  <Text className="text-sm font-inter-semibold text-text">{item.label}</Text>
+                  <Text className="text-xs font-inter text-text-secondary mt-0.5">{item.desc}</Text>
                 </View>
                 <Ionicons name="open-outline" size={16} color={Colors.textTertiary} />
               </TouchableOpacity>
@@ -62,25 +69,28 @@ export default function SupportScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Help Topics</Text>
+        <Text className="text-base font-inter-semibold text-text mb-3">Help Topics</Text>
         {TOPICS.map((item, i) => (
-          <View key={i} style={styles.topicCard}>
-            <View style={styles.topicIcon}>
+          <View
+            key={i}
+            className="flex-row items-start bg-surface rounded-2xl p-4 mb-2 border border-gray-100 space-x-3.5"
+          >
+            <View className="w-10 h-10 rounded-xl bg-primary-light items-center justify-center">
               <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.topicTitle}>{item.title}</Text>
-              <Text style={styles.topicDesc}>{item.desc}</Text>
+            <View className="flex-1">
+              <Text className="text-sm font-inter-semibold text-text mb-0.5">{item.title}</Text>
+              <Text className="text-xs font-inter text-text-secondary leading-4.5">{item.desc}</Text>
             </View>
           </View>
         ))}
 
-        <View style={styles.hoursCard}>
+        <View className="flex-row items-start space-x-3 mt-5 p-4 bg-surface rounded-2xl border border-gray-100">
           <Ionicons name="time-outline" size={20} color={Colors.textSecondary} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.hoursTitle}>Support Hours</Text>
-            <Text style={styles.hoursText}>Monday - Saturday: 9:00 AM - 8:00 PM</Text>
-            <Text style={styles.hoursText}>Sunday: 10:00 AM - 6:00 PM</Text>
+          <View className="flex-1">
+            <Text className="text-sm font-inter-semibold text-text mb-1">Support Hours</Text>
+            <Text className="text-[13px] font-inter text-text-secondary leading-5">Monday - Saturday: 9:00 AM - 8:00 PM</Text>
+            <Text className="text-[13px] font-inter text-text-secondary leading-5">Sunday: 10:00 AM - 6:00 PM</Text>
           </View>
         </View>
       </ScrollView>
@@ -88,25 +98,4 @@ export default function SupportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: Colors.surface },
-  contactCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 24 },
-  contactTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 14 },
-  contactList: { gap: 10 },
-  contactItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 12, padding: 14, gap: 14 },
-  contactIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  contactLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  contactDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 12 },
-  topicCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder, gap: 14 },
-  topicIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  topicTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
-  topicDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-  hoursCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 20, padding: 16, backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder },
-  hoursTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 4 },
-  hoursText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 },
-});
+const styles = StyleSheet.create({});
