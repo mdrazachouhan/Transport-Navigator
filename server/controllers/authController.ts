@@ -19,7 +19,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const { phone, otp, role } = req.body;
     console.log(`[VERIFY] ${phone}: attempting OTP ${otp}`);
     if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
-    const valid = await storage.verifyOtp(phone, otp);
+    const valid = await storage.verifyOtp(phone, String(otp).trim());
     if (!valid) {
         console.log(`[VERIFY] ${phone}: OTP verification failed`);
         return res.status(400).json({ error: 'Invalid or expired OTP. Please tap "Resend OTP" and try again.' });

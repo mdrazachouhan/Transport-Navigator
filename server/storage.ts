@@ -303,7 +303,7 @@ class MongoStorage {
     const record = await OtpRecordModel.findOne({ phone });
     if (!record) return false;
     if (new Date() > record.expiresAt) return false;
-    if (record.otp !== otp) return false;
+    if (String(record.otp).trim() !== String(otp || '').trim()) return false;
     record.verified = true;
     await record.save();
     return true;

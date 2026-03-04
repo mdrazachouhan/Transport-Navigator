@@ -90,50 +90,60 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     return { success: false, error: data.error };
   }, [apiCall]);
 
+  const upsertBooking = useCallback((booking: BookingData) => {
+    setBookings(prev => {
+      const exists = prev.some(b => b.id === booking.id);
+      if (exists) {
+        return prev.map(b => b.id === booking.id ? booking : b);
+      }
+      return [booking, ...prev];
+    });
+  }, []);
+
   const acceptBooking = useCallback(async (bookingId: string) => {
     const data = await apiCall(`/api/bookings/${bookingId}/accept`, 'PUT');
     if (data.booking) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      upsertBooking(data.booking);
       return { success: true };
     }
     return { success: false, error: data.error };
-  }, [apiCall]);
+  }, [apiCall, upsertBooking]);
 
   const startTrip = useCallback(async (bookingId: string, otp: string) => {
     const data = await apiCall(`/api/bookings/${bookingId}/start`, 'PUT', { otp });
     if (data.booking) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      upsertBooking(data.booking);
       return { success: true };
     }
     return { success: false, error: data.error };
-  }, [apiCall]);
+  }, [apiCall, upsertBooking]);
 
   const completeTrip = useCallback(async (bookingId: string) => {
     const data = await apiCall(`/api/bookings/${bookingId}/complete`, 'PUT');
     if (data.booking) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      upsertBooking(data.booking);
       return { success: true };
     }
     return { success: false, error: data.error };
-  }, [apiCall]);
+  }, [apiCall, upsertBooking]);
 
   const cancelBooking = useCallback(async (bookingId: string, reason?: string) => {
     const data = await apiCall(`/api/bookings/${bookingId}/cancel`, 'PUT', { reason });
     if (data.booking) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      upsertBooking(data.booking);
       return { success: true };
     }
     return { success: false, error: data.error };
-  }, [apiCall]);
+  }, [apiCall, upsertBooking]);
 
   const rateBooking = useCallback(async (bookingId: string, rating: number, comment?: string) => {
     const data = await apiCall(`/api/bookings/${bookingId}/rate`, 'PUT', { rating, comment });
     if (data.booking) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? data.booking : b));
+      upsertBooking(data.booking);
       return { success: true };
     }
     return { success: false, error: data.error };
-  }, [apiCall]);
+  }, [apiCall, upsertBooking]);
 
   const getBookingById = useCallback((id: string) => bookings.find(b => b.id === id), [bookings]);
 
