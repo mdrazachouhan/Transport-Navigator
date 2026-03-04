@@ -165,7 +165,7 @@ export const startTrip = (io: any) => async (req: Request, res: Response) => {
             return res.status(400).json({ error: `Cannot start trip from '${booking.status}' status.` });
         }
 
-        if (booking.otp !== otp) {
+        if (String(booking.otp).trim() !== String(otp || '').trim()) {
             return res.status(400).json({ error: 'Invalid verification code (OTP)' });
         }
 

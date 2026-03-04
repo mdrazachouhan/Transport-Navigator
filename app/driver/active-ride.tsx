@@ -174,14 +174,21 @@ export default function DriverActiveRideScreen() {
   const currentStep = getCurrentStep();
 
   const handleVerifyOtp = async () => {
-    if (otp.length !== 4) {
+    const cleanOtp = otp.trim();
+    if (cleanOtp.length !== 4) {
       Alert.alert('Incomplete OTP', 'Please enter the 4-digit verification code.');
       return;
     }
     setVerifying(true);
     try {
-      const result = await startTrip(bookingId!, otp);
-      if (result.success) setOtp('');
+      const result = await startTrip(bookingId!, cleanOtp);
+      if (result.success) {
+        setOtp('');
+        // Brief delay to ensure state update propagates to UI
+        setTimeout(() => {
+          addNotification('Trip Authorized', 'OTP verified successfully. Journey has started.', 'booking');
+        }, 100);
+      }
       else Alert.alert('Verification Failed', result.error || 'The OTP entered is incorrect.');
     } catch (e: any) {
       Alert.alert('Error', 'Communication error. Please try again.');

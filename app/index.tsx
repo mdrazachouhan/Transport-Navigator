@@ -142,12 +142,13 @@ export default function LoginScreen() {
   };
 
   const handleVerifyOtp = async () => {
-    if (otp.length !== 4) {
+    const cleanOtp = otp.trim();
+    if (cleanOtp.length !== 4) {
       Alert.alert('Invalid OTP', 'Please enter the 4-digit code');
       return;
     }
     setLoading(true);
-    const result = await verifyOtp(phone, otp, appMode);
+    const result = await verifyOtp(phone, cleanOtp, appMode);
     setLoading(false);
     if (result.success) {
       // Navigation handled by auth effect
