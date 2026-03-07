@@ -16,7 +16,7 @@ export const registerRoutes = (io: any) => {
 
     router.use('/admin', adminRoutes);
     router.use('/auth', authRoutes);
-    router.use('/users', userRoutes);
+    router.use('/users', userRoutes(io));
     router.use('/bookings', bookingRoutes(io));
     router.use('/vehicles', vehicleRoutes);
 

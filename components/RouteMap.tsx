@@ -12,9 +12,10 @@ interface RouteMapProps {
   delivery: { name: string; lat: number; lng: number };
   driverLocation?: { latitude: number; longitude: number } | null;
   showDriverToPickup?: boolean;
+  onRoutingUpdate?: (data: { distance: number; duration: number }) => void;
 }
 
-export default function RouteMap({ pickup, delivery, driverLocation, showDriverToPickup }: RouteMapProps) {
+export default function RouteMap({ pickup, delivery, driverLocation, showDriverToPickup, onRoutingUpdate }: RouteMapProps) {
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -71,10 +72,10 @@ export default function RouteMap({ pickup, delivery, driverLocation, showDriverT
       {driverLocation && (
         <Marker
           coordinate={driverLocation}
-          title="My Location"
+          title="Vehicle"
           anchor={{ x: 0.5, y: 0.5 }}
         >
-          <MaterialCommunityIcons name="navigation" size={28} color={Colors.primary} />
+          <MaterialCommunityIcons name="truck-delivery" size={32} color={Colors.primary} />
         </Marker>
       )}
 
@@ -87,6 +88,12 @@ export default function RouteMap({ pickup, delivery, driverLocation, showDriverT
             strokeWidth={4}
             strokeColor={Colors.primary}
             onReady={(result) => {
+              if (onRoutingUpdate) {
+                onRoutingUpdate({
+                  distance: result.distance,
+                  duration: result.duration
+                });
+              }
               mapRef.current?.fitToCoordinates(result.coordinates, {
                 edgePadding: { right: 60, bottom: 350, left: 60, top: 80 },
               });
@@ -100,6 +107,15 @@ export default function RouteMap({ pickup, delivery, driverLocation, showDriverT
               strokeWidth={3}
               strokeColor={Colors.success}
               lineDashPattern={[5, 5]}
+              onReady={(result) => {
+                // If we are showing driver to pickup, this duration is more important for ETA
+                if (onRoutingUpdate) {
+                  onRoutingUpdate({
+                    distance: result.distance,
+                    duration: result.duration
+                  });
+                }
+              }}
             />
           )}
         </>

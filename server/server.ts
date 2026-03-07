@@ -43,17 +43,22 @@ async function startServer() {
         console.log("Socket connected:", socket.id);
 
         socket.on("driver:location", async (data: { driverId: string; lat: number; lng: number }) => {
+            console.log(`[SOCKET] Location from ${data.driverId}: ${data.lat}, ${data.lng}`);
             await storage.updateUser(data.driverId, { location: { lat: data.lat, lng: data.lng } });
             io.emit("driver:location:update", data);
         });
 
         socket.on("driver:online", async (data: { driverId: string }) => {
+            console.log(`[SOCKET] Driver online: ${data.driverId}`);
             await storage.updateUser(data.driverId, { isOnline: true });
             socket.join(`driver:${data.driverId}`);
+            io.emit("driver:online:update", { driverId: data.driverId, isOnline: true });
         });
 
         socket.on("driver:offline", async (data: { driverId: string }) => {
+            console.log(`[SOCKET] Driver offline: ${data.driverId}`);
             await storage.updateUser(data.driverId, { isOnline: false });
+            io.emit("driver:online:update", { driverId: data.driverId, isOnline: false });
         });
 
         socket.on("disconnect", () => {

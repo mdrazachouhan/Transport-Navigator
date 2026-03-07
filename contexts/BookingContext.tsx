@@ -71,8 +71,14 @@ export function BookingProvider({ children }: { children: ReactNode }) {
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
+    console.log('[BOOKING] Fetching bookings...');
     const data = await apiCall('/api/bookings');
-    if (data.bookings) setBookings(data.bookings);
+    if (data.bookings) {
+      console.log(`[BOOKING] Received ${data.bookings.length} bookings`);
+      setBookings(data.bookings);
+    } else if (data.error) {
+      console.error('[BOOKING] Fetch error:', data.error);
+    }
     setLoading(false);
   }, [apiCall]);
 

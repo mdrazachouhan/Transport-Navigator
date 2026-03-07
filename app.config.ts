@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   scheme: IS_DRIVER ? 'myload24driver' : 'myload24',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: false,
+  newArchEnabled: true,
   splash: {
     image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-router',
       {
-        origin: 'https://replit.com/',
+        origin: 'http://10.31.178.96:5000',
       },
     ],
     'expo-font',
@@ -56,7 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      projectId: "4455a979-c6fc-407b-935c-177bf4f07db0"
+      projectId: "55d64891-0c59-4b08-bd13-9b26f4269fac"
     }
   }
 });

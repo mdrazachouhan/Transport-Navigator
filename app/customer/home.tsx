@@ -12,6 +12,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,25 +23,11 @@ import Colors from '@/constants/colors';
 import Map from '@/components/Map';
 
 function PulsingDot() {
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  const glowScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
-  const glowOpacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
-
+  // Removing Animated.View to prevent nativewind unmount crashes during rapid state switches
   return (
     <View className="w-10 h-10 items-center justify-center">
-      <Animated.View
+      <View
         className="absolute w-6 h-6 rounded-full bg-primary/30"
-        style={{ transform: [{ scale: glowScale }], opacity: glowOpacity }}
       />
       <View className="w-3.5 h-3.5 rounded-full bg-primary border-2 border-white shadow-sm" />
     </View>
@@ -49,6 +36,7 @@ function PulsingDot() {
 
 export default function CustomerHomeScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { bookings, fetchBookings, getActiveBooking } = useBookings();
@@ -79,9 +67,9 @@ export default function CustomerHomeScreen() {
     if (activeBooking) {
       Animated.spring(bannerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }).start();
     } else {
-      bannerSlide.setValue(-100);
+      Animated.timing(bannerSlide, { toValue: -100, duration: 200, useNativeDriver: true }).start();
     }
-  }, [activeBooking]);
+  }, [!!activeBooking]);
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -102,11 +90,20 @@ export default function CustomerHomeScreen() {
     <View className="flex-1 bg-[#F5F7FA]">
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <Animated.View className="absolute inset-x-0 top-0 h-[70%]" style={{ transform: [{ scale: mapScale }] }}>
-        <Map />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: '70%',
+          transform: [{ scale: mapScale }]
+        }}
+      >
+        {isFocused && <Map />}
         <LinearGradient
           colors={['rgba(8, 18, 32, 0.9)', 'rgba(8, 18, 32, 0)']}
-          className="absolute inset-0"
+          style={StyleSheet.absoluteFill}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 0.6 }}
         />
@@ -149,30 +146,58 @@ export default function CustomerHomeScreen() {
         </View>
       </Animated.View>
 
-      {activeBooking && (
-        <Animated.View
-          className="absolute left-5 right-5 z-10"
-          style={{ top: topInset + 85, transform: [{ translateY: bannerSlide }] }}
+      {/* Always mounted to avoid CSS interop crash on conditional mount */}
+      <Animated.View
+        pointerEvents={activeBooking ? 'auto' : 'none'}
+        style={[
+          {
+            position: 'absolute',
+            left: 20,
+            right: 20,
+            zIndex: 10,
+            top: topInset + 85,
+            opacity: bannerSlide.interpolate({
+              inputRange: [-100, 0],
+              outputRange: [0, 1],
+              extrapolate: 'clamp'
+            }),
+            transform: [{ translateY: bannerSlide }]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: 'white',
+            borderRadius: 20,
+            padding: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 8,
+            borderWidth: 1,
+            borderColor: 'rgba(0,0,0,0.06)',
+          }}
+          onPress={() => activeBooking && router.push(`/customer/track-ride?bookingId=${activeBooking.id}` as any)}
+          activeOpacity={0.85}
         >
-          <TouchableOpacity
-            className="flex-row items-center justify-between bg-surface rounded-[20px] p-4 shadow-2xl border border-primary/10"
-            onPress={() => router.push(`/customer/track-ride?bookingId=${activeBooking.id}` as any)}
-          >
-            <View className="flex-row items-center">
-              <PulsingDot />
-              <View className="ml-3">
-                <Text className="text-sm font-inter-bold text-text">Ongoing Activity</Text>
-                <Text className="text-[10px] font-inter-bold text-primary mt-0.5 uppercase tracking-wide">
-                  {getStatusLabel(activeBooking.status)}
-                </Text>
-              </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <PulsingDot />
+            <View style={{ marginLeft: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', fontFamily: 'Inter_700Bold' }}>Ongoing Activity</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.primary, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {activeBooking ? getStatusLabel(activeBooking.status) : ''}
+              </Text>
             </View>
-            <View className="w-8 h-8 rounded-full bg-primary/5 items-center justify-center">
-              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+          </View>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(27, 110, 243, 0.05)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
 
       <Animated.View
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] pt-6 shadow-2xl"

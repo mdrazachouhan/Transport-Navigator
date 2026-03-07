@@ -14,13 +14,8 @@ import { queryClient } from '@/lib/query-client';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { BookingProvider } from '@/contexts/BookingContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
-import { cssInterop } from 'nativewind';
-import { Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
-cssInterop(Animated.View, { className: 'style' });
-cssInterop(Animated.Text, { className: 'style' });
-cssInterop(LinearGradient, { className: 'style' });
+
 
 SplashScreen.preventAutoHideAsync();
 
@@ -89,9 +84,7 @@ export default function RootLayout() {
             <AuthProvider>
               <BookingProvider>
                 <NotificationProvider>
-                  <ErrorBoundary>
-                    <RootLayoutNav />
-                  </ErrorBoundary>
+                  <RootLayoutNav />
                 </NotificationProvider>
               </BookingProvider>
             </AuthProvider>

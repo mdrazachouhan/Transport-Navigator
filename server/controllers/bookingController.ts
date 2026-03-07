@@ -155,18 +155,39 @@ export const acceptBooking = (io: any) => async (req: Request, res: Response) =>
 
 export const startTrip = (io: any) => async (req: Request, res: Response) => {
     const { otp } = req.body;
+    const { userId } = (req as any).user as JwtPayload;
     const bookingId = paramId(req.params);
+
+    console.log(`[START-TRIP] Request: bookingId=${bookingId}, userId=${userId}, otp=${otp}`);
 
     try {
         const booking = await storage.getBookingById(bookingId);
-        if (!booking) return res.status(404).json({ error: 'Booking not found' });
-
-        if (booking.status !== 'accepted') {
-            return res.status(400).json({ error: `Cannot start trip from '${booking.status}' status.` });
+        if (!booking) {
+            console.error(`[START-TRIP] Booking ${bookingId} not found`);
+            return res.status(404).json({ error: 'Booking not found' });
         }
 
-        if (booking.otp !== otp) {
-            return res.status(400).json({ error: 'Invalid verification code (OTP)' });
+        console.log(`[START-TRIP] Booking status=${booking.status}, driverId=${booking.driverId}, otp=${booking.otp}`);
+
+        // Ensure the driver who accepted is the one starting the trip
+        if (booking.driverId && booking.driverId !== userId) {
+            console.warn(`[START-TRIP] Unauthorized: User ${userId} is not driver ${booking.driverId} for booking ${bookingId}`);
+            return res.status(403).json({ error: 'Unauthorized: Only the assigned driver can start this trip' });
+        }
+
+        if (booking.status !== 'accepted') {
+            console.warn(`[START-TRIP] Wrong status: ${booking.status}`);
+            return res.status(400).json({ error: `Cannot start trip. Current status is '${booking.status}'. Trip must be 'accepted' first.` });
+        }
+
+        // OTP comparison - both should be strings
+        const providedOtp = String(otp).trim();
+        const storedOtp = String(booking.otp).trim();
+        console.log(`[START-TRIP] OTP check: provided='${providedOtp}', stored='${storedOtp}', match=${storedOtp === providedOtp}`);
+
+        if (storedOtp !== providedOtp) {
+            console.warn(`[START-TRIP] OTP mismatch for booking ${bookingId}`);
+            return res.status(400).json({ error: 'Invalid verification code (OTP). Please ask the customer for the correct code.' });
         }
 
         const updated = await storage.updateBooking(bookingId, {
@@ -174,11 +195,17 @@ export const startTrip = (io: any) => async (req: Request, res: Response) => {
             startedAt: new Date().toISOString()
         });
 
+        if (!updated) {
+            console.error(`[START-TRIP] Failed to update booking ${bookingId}`);
+            return res.status(500).json({ error: 'Failed to start trip. Database update failed.' });
+        }
+
+        console.log(`[START-TRIP] Success: Booking ${bookingId} is now in_progress`);
         io.emit('booking:updated', { booking: updated });
         res.json({ booking: updated });
     } catch (error: any) {
-        console.error(`[START-TRIP] Error:`, error);
-        res.status(500).json({ error: 'Failed to start trip' });
+        console.error(`[START-TRIP] CRITICAL Error:`, error);
+        res.status(500).json({ error: 'Failed to start trip. Server error.' });
     }
 };
 

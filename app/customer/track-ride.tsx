@@ -21,6 +21,7 @@ import { useBookings } from '@/contexts/BookingContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { getApiUrl } from '@/lib/query-client';
 import Colors from '@/constants/colors';
+import RouteMap from '@/components/RouteMap';
 
 const CANCEL_REASONS = [
   'Changed mind',
@@ -57,32 +58,11 @@ function getStepIndex(status: string): number {
 }
 
 function AnimatedCard({ delay, children, className }: { delay: number; children: React.ReactNode; className?: string }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 600,
-      delay,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const translateY = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [40, 0],
-  });
-
+  // Bypassing Animated for native wind stability on state updates
   return (
-    <Animated.View
-      className={className}
-      style={{
-        opacity: anim,
-        transform: [{ translateY }],
-      }}
-    >
+    <View className={className}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -90,34 +70,46 @@ function StepIndicator({ label, index, currentStep }: { label: string; index: nu
   const isActive = index === currentStep;
   const isDone = index < currentStep;
 
+  const getCircleStyle = () => {
+    if (isDone) return { backgroundColor: Colors.success, borderColor: Colors.success };
+    if (isActive) return { backgroundColor: Colors.primary, borderColor: Colors.primary };
+    return { backgroundColor: 'white', borderColor: '#F3F4F6' };
+  };
+
+  const getLineStyle = () => {
+    return { backgroundColor: isDone ? Colors.success : '#F3F4F6' };
+  };
+
+  const getTextStyle = () => {
+    if (isActive) return { color: '#1A1D26', fontWeight: '700' as any };
+    if (isDone) return { color: '#6B7280', opacity: 0.6, fontWeight: '700' as any };
+    return { color: '#9CA3AF', fontWeight: '700' as any };
+  };
+
   return (
-    <View className="flex-row items-center mb-6 last:mb-0">
-      <View className="items-center mr-4">
-        <View
-          className={`w-9 h-9 rounded-2xl items-center justify-center border-2 ${isDone
-            ? 'bg-success border-success shadow-lg shadow-success/20'
-            : isActive
-              ? 'bg-primary border-primary shadow-xl shadow-primary/30'
-              : 'bg-white border-gray-100'
-            }`}
-        >
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index === STEPS.length - 1 ? 0 : 24 }}>
+      <View style={{ alignItems: 'center', marginRight: 16 }}>
+        <View style={[
+          { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+          getCircleStyle()
+        ]}>
           {isDone ? (
             <Ionicons name="checkmark-done" size={18} color="#FFF" />
           ) : (
-            <Text className={`text-[13px] font-inter-bold ${isActive ? 'text-white' : 'text-text-tertiary'}`}>{index + 1}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: isActive ? '#FFF' : '#9CA3AF' }}>{index + 1}</Text>
           )}
         </View>
         {index < STEPS.length - 1 && (
-          <View className={`w-[2px] h-7 my-1 ${isDone ? 'bg-success' : 'bg-gray-100'}`} />
+          <View style={[{ width: 2, height: 28, marginVertical: 4 }, getLineStyle()]} />
         )}
       </View>
-      <View className="flex-1 pb-1">
-        <Text className={`text-[14px] font-inter-bold ${isActive ? 'text-text' : isDone ? 'text-text-secondary opacity-60' : 'text-text-tertiary'}`}>
+      <View style={{ flex: 1, paddingBottom: 4 }}>
+        <Text style={[{ fontSize: 14 }, getTextStyle()]}>
           {label}
         </Text>
         {isActive && (
-          <View className="bg-primary/10 self-start px-2 py-0.5 rounded-md mt-1">
-            <Text className="text-[8px] font-inter-bold text-primary uppercase tracking-[1px]">Live Radar</Text>
+          <View style={{ backgroundColor: 'rgba(27, 110, 243, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 4 }}>
+            <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 1 }}>Live Radar</Text>
           </View>
         )}
       </View>
@@ -138,6 +130,21 @@ export default function TrackRideScreen() {
   const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const bottomInset = insets.bottom + (Platform.OS === 'web' ? 34 : 20);
 
+  const booking = getBookingById(bookingId as string);
+  const prevStatusRef = useRef<string | undefined>(undefined);
+  const isMounted = useRef(true);
+
+  // Fallback booking to prevent flashing empty state during re-fetches
+  const lastValidBooking = useRef<any>(null);
+  if (booking) {
+    lastValidBooking.current = booking;
+  }
+  const displayBooking = booking || lastValidBooking.current;
+
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number, longitude: number } | null>(null);
+
+  const [eta, setEta] = useState<{ distance: number, duration: number } | null>(null);
+
   useEffect(() => {
     fetchBookings();
     const interval = setInterval(() => { fetchBookings(); }, 5000);
@@ -146,9 +153,19 @@ export default function TrackRideScreen() {
     try {
       const apiUrl = getApiUrl();
       socket = io(apiUrl, { transports: ['websocket', 'polling'], path: '/socket.io' });
+
       socket.on('booking:updated', (data: any) => {
         if (data.booking?.id === bookingId) {
           fetchBookings();
+        }
+      });
+
+      socket.on('driver:location:update', (data: { driverId: string; lat: number; lng: number }) => {
+        if (displayBooking?.driverId === data.driverId) {
+          setDriverLocation({
+            latitude: data.lat,
+            longitude: data.lng
+          });
         }
       });
     } catch (e) { }
@@ -157,41 +174,60 @@ export default function TrackRideScreen() {
       clearInterval(interval);
       if (socket) socket.disconnect();
     };
-  }, [bookingId]);
-
-  const booking = getBookingById(bookingId as string);
-  const prevStatusRef = useRef<string | undefined>(undefined);
-  const isMounted = useRef(true);
+  }, [bookingId, displayBooking?.driverId]);
 
   useEffect(() => {
     isMounted.current = true;
     return () => { isMounted.current = false; };
   }, []);
 
+  // Effect for Notifications
   useEffect(() => {
-    if (!booking || !isMounted.current) return;
+    if (!displayBooking || !isMounted.current) return;
 
-    // Track status transitions
-    if (booking.status !== prevStatusRef.current) {
-      if (booking.status === 'in_progress' && prevStatusRef.current === 'accepted') {
+    if (displayBooking.status !== prevStatusRef.current) {
+      console.log(`[TRACK-NOTIF] Status changed: ${prevStatusRef.current} -> ${displayBooking.status}`);
+
+      if (displayBooking.status === 'in_progress' && prevStatusRef.current === 'accepted') {
         addNotification('Trip Started', 'Your transportation partner is now on the move.', 'booking');
-      } else if (booking.status === 'completed' && prevStatusRef.current && prevStatusRef.current !== 'completed') {
+      } else if (displayBooking.status === 'accepted' && prevStatusRef.current === 'pending') {
+        console.log('[TRACK-NOTIF] Acceptance confirmed, showing notification');
+        addNotification('Driver Found', 'A transportation partner has accepted your request.', 'booking');
+      } else if (displayBooking.status === 'completed' && prevStatusRef.current && prevStatusRef.current !== 'completed') {
         addNotification('Job Finalized', `The delivery job has been successfully closed.`, 'booking');
-
-        if (!hasNavigated.current) {
-          hasNavigated.current = true;
-          // Defer navigation to ensure state stability
-          const timeoutId = setTimeout(() => {
-            if (isMounted.current) {
-              router.replace(`/customer/rate-ride?bookingId=${booking.id}` as any);
-            }
-          }, 400);
-          return () => clearTimeout(timeoutId);
-        }
       }
-      prevStatusRef.current = booking.status;
     }
-  }, [booking?.status, booking?.id]);
+  }, [displayBooking?.status, displayBooking?.id]);
+
+  // Effect for Navigation
+  useEffect(() => {
+    if (!displayBooking || !isMounted.current || !router) return;
+
+    if (displayBooking.status === 'completed' && !hasNavigated.current) {
+      console.log('[TRACK-NAV] Status is COMPLETED, initiating navigation guard');
+      hasNavigated.current = true;
+
+      const timeoutId = setTimeout(() => {
+        if (isMounted.current && router) {
+          console.log('[TRACK-NAV] Executing deferred navigation to rate-ride');
+          try {
+            // Use .replace with a check
+            router.replace(`/customer/rate-ride?bookingId=${displayBooking.id}` as any);
+          } catch (e) {
+            console.error('[TRACK-NAV] Replace failed:', e);
+          }
+        }
+      }, 1500); // Slightly longer delay to allow screen to settle
+      return () => clearTimeout(timeoutId);
+    }
+  }, [displayBooking?.status, displayBooking?.id, router]);
+
+  // Update ref at the very end of sync logic to avoid premature state comparison
+  useEffect(() => {
+    if (displayBooking?.status) {
+      prevStatusRef.current = displayBooking.status;
+    }
+  }, [displayBooking?.status]);
 
   const handleCancel = useCallback(async (reason: string) => {
     if (!bookingId) return;
@@ -202,41 +238,67 @@ export default function TrackRideScreen() {
     router.replace('/customer/home' as any);
   }, [bookingId]);
 
-  if (!booking) {
+  if (!displayBooking) {
+    console.log('[TRACK] No booking to display, showing loading');
     return (
       <View className="flex-1 bg-white items-center justify-center">
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text className="mt-4 text-gray-500 font-inter-medium">Initializing Trip Intel...</Text>
       </View>
     );
   }
 
-  const currentStep = getStepIndex(booking.status);
-  const isCancelled = booking.status === 'cancelled';
+  const currentStep = getStepIndex(displayBooking.status);
+  const isCancelled = displayBooking.status === 'cancelled';
 
   return (
     <View className="flex-1 bg-[#FDFDFD]">
       <LinearGradient
         colors={[Colors.navyDark, Colors.navyMid]}
-        className="pb-10 rounded-b-[32px] shadow-2xl"
-        style={{ paddingTop: topInset + 12 }}
+        style={{ paddingBottom: 40, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingTop: topInset + 12 }}
       >
-        <View className="flex-row items-center px-6">
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24 }}>
           <TouchableOpacity
             onPress={() => router.replace('/customer/home' as any)}
-            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Trip Radar</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: Colors.surface, marginRight: 40 }}>Trip Radar</Text>
         </View>
 
-        <View className="mt-6 px-8 flex-row items-center justify-between">
+        <View style={{ marginTop: 24, paddingHorizontal: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
-            <Text className="text-[9px] font-inter-bold text-white/40 uppercase tracking-[2px] mb-1.5">Reference ID</Text>
-            <Text className="text-xl font-inter-bold text-surface">#{String(bookingId || '').slice(-6).toUpperCase()}</Text>
+            <Text style={{ fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6 }}>Reference ID</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.surface }}>#{String(bookingId || '').slice(-6).toUpperCase()}</Text>
           </View>
-          <View className="w-12 h-12 bg-white/10 rounded-xl items-center justify-center border border-white/10">
+          <View style={{ width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
             <MaterialCommunityIcons name="radar" size={24} color={Colors.accent} />
+          </View>
+        </View>
+
+        <View style={{ marginTop: 20, paddingHorizontal: 24, height: 220 }}>
+          <View style={{ flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <RouteMap
+              pickup={displayBooking.pickup}
+              delivery={displayBooking.delivery}
+              driverLocation={driverLocation}
+              showDriverToPickup={displayBooking.status === 'accepted'}
+              onRoutingUpdate={(data) => setEta(data)}
+            />
+
+            {eta && (
+              <View style={{ position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.9)', padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="map-marker-path" size={16} color={Colors.primary} style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#1A1D26' }}>
+                  {Math.round(eta.duration)} min away
+                </Text>
+                <View style={{ width: 1, height: 12, backgroundColor: '#E5E7EB', marginHorizontal: 8 }} />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280' }}>
+                  {eta.distance.toFixed(1)} km
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </LinearGradient>
@@ -265,7 +327,7 @@ export default function TrackRideScreen() {
               </View>
             </AnimatedCard>
 
-            {booking.driverName && (
+            {displayBooking.driverName && (
               <AnimatedCard delay={100} className="bg-white rounded-2xl p-6 mb-4 shadow-2xl shadow-black/5 border border-gray-50">
                 <Text className="text-[10px] font-inter-bold text-text-tertiary uppercase tracking-[2px] mb-5">Partner Details</Text>
                 <View className="flex-row items-center justify-between">
@@ -275,16 +337,16 @@ export default function TrackRideScreen() {
                     </View>
                     <View>
                       <View className="flex-row items-center">
-                        <Text className="text-base font-inter-bold text-text mr-2">{booking.driverName}</Text>
+                        <Text className="text-base font-inter-bold text-text mr-2">{displayBooking.driverName}</Text>
                         <View className="bg-success/10 px-1.5 py-0.5 rounded-md">
                           <Text className="text-[7px] font-inter-black text-success uppercase">Verified</Text>
                         </View>
                       </View>
-                      <Text className="text-[11px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">{booking.driverVehicleNumber || 'Truck Alpha'}</Text>
+                      <Text className="text-[11px] font-inter-bold text-text-tertiary uppercase tracking-widest mt-0.5">{displayBooking.driverVehicleNumber || 'Truck Alpha'}</Text>
                     </View>
                   </View>
                   <TouchableOpacity
-                    onPress={() => Linking.openURL(`tel:${booking.driverPhone}`)}
+                    onPress={() => displayBooking.driverPhone && Linking.openURL(`tel:${displayBooking.driverPhone}`)}
                     className="w-10 h-10 rounded-xl bg-success items-center justify-center shadow-lg shadow-success/20"
                   >
                     <Ionicons name="call" size={18} color="#FFF" />
@@ -293,13 +355,13 @@ export default function TrackRideScreen() {
               </AnimatedCard>
             )}
 
-            {booking.status === 'accepted' && booking.otp && (
+            {displayBooking.status === 'accepted' && displayBooking.otp && (
               <AnimatedCard delay={200} className="bg-primary/5 rounded-3xl p-8 items-center border border-primary/10 mb-5">
                 <Text className="text-[9px] font-inter-bold text-primary uppercase tracking-[3px] mb-5">Security Token</Text>
-                <View className="flex-row items-center justify-center space-x-3">
-                  {booking.otp.split('').map((digit, i) => (
-                    <View key={i} className="w-10 h-14 bg-white rounded-xl items-center justify-center border border-primary/10 shadow-sm">
-                      <Text className="text-2xl font-inter-bold text-primary">{digit}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  {(displayBooking.otp || '').toString().split('').map((digit: string, i: number) => (
+                    <View key={i} style={{ width: 40, height: 56, backgroundColor: 'white', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(27, 110, 243, 0.1)', marginHorizontal: 6 }}>
+                      <Text style={{ fontSize: 24, fontWeight: '700', color: Colors.primary }}>{digit}</Text>
                     </View>
                   ))}
                 </View>
@@ -317,26 +379,29 @@ export default function TrackRideScreen() {
                 </View>
                 <View>
                   <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-widest mb-0.5">Total Distance</Text>
-                  <Text className="text-xl font-inter-bold text-text">{booking.distance} km trip</Text>
+                  <Text className="text-xl font-inter-bold text-text">{displayBooking.distance} km trip</Text>
                 </View>
               </View>
 
               <View className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex-row items-center">
-                <View className={`w-9 h-9 rounded-lg items-center justify-center mr-3.5 ${booking.paymentMethod === 'cash' ? 'bg-orange-50' : 'bg-blue-50'}`}>
+                <View
+                  className="w-9 h-9 rounded-lg items-center justify-center mr-3.5"
+                  style={{ backgroundColor: displayBooking.paymentMethod === 'cash' ? '#FFF7ED' : '#EFF6FF' }}
+                >
                   <Ionicons
-                    name={booking.paymentMethod === 'cash' ? 'cash' : 'card'}
+                    name={displayBooking.paymentMethod === 'cash' ? 'cash' : 'card'}
                     size={18}
-                    color={booking.paymentMethod === 'cash' ? Colors.warning : Colors.primary}
+                    color={displayBooking.paymentMethod === 'cash' ? Colors.warning : Colors.primary}
                   />
                 </View>
                 <View>
                   <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-widest">Payment Strategy</Text>
-                  <Text className="text-[13px] font-inter-bold text-text mt-0.5">{booking.paymentMethod === 'cash' ? 'Physical Cash' : 'UPI Verified'}</Text>
+                  <Text className="text-[13px] font-inter-bold text-text mt-0.5">{displayBooking.paymentMethod === 'cash' ? 'Physical Cash' : 'UPI Verified'}</Text>
                 </View>
               </View>
             </AnimatedCard>
 
-            {(booking.status === 'pending' || booking.status === 'accepted') && (
+            {(displayBooking.status === 'pending' || displayBooking.status === 'accepted') && (
               <TouchableOpacity
                 onPress={() => setCancelModalVisible(true)}
                 className="mt-2 h-14 rounded-2xl bg-red-50 items-center justify-center border border-red-100"

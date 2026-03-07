@@ -12,14 +12,17 @@ import {
   Linking,
   Animated,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { io } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/contexts/BookingContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { getApiUrl } from '@/lib/query-client';
 import Colors from '@/constants/colors';
 
 import RouteMap from '@/components/RouteMap';
@@ -35,27 +38,11 @@ const CANCEL_REASONS = [
 ];
 
 function AnimatedCard({ children, index, className }: { children: React.ReactNode; index: number; className?: string }) {
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const delay = index * 100;
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, delay, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
+  // Bypassing Animated for native wind stability on state updates
   return (
-    <Animated.View
-      className={className}
-      style={{
-        opacity: opacityAnim,
-        transform: [{ translateY: slideAnim }],
-      }}
-    >
+    <View className={className}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -63,34 +50,46 @@ function AnimatedStepIndicator({ step, index, currentStep }: { step: string; ind
   const isActive = index === currentStep;
   const isDone = index < currentStep;
 
+  const getCircleStyle = () => {
+    if (isDone) return { backgroundColor: Colors.success, borderColor: Colors.success };
+    if (isActive) return { backgroundColor: Colors.primary, borderColor: Colors.primary };
+    return { backgroundColor: 'white', borderColor: '#F3F4F6' };
+  };
+
+  const getLineStyle = () => {
+    return { backgroundColor: isDone ? Colors.success : '#F3F4F6' };
+  };
+
+  const getTextStyle = () => {
+    if (isActive) return { color: '#1A1D26', fontWeight: '700' as any };
+    if (isDone) return { color: '#6B7280', opacity: 0.6, fontWeight: '700' as any };
+    return { color: '#9CA3AF', fontWeight: '700' as any };
+  };
+
   return (
-    <View className="flex-row items-center mb-6 last:mb-0">
-      <View className="items-center mr-4">
-        <View
-          className={`w-9 h-9 rounded-2xl items-center justify-center border-2 ${isDone
-            ? 'bg-success border-success shadow-lg shadow-success/20'
-            : isActive
-              ? 'bg-primary border-primary shadow-xl shadow-primary/30'
-              : 'bg-white border-gray-100'
-            }`}
-        >
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index === STEPS.length - 1 ? 0 : 24 }}>
+      <View style={{ alignItems: 'center', marginRight: 16 }}>
+        <View style={[
+          { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+          getCircleStyle()
+        ]}>
           {isDone ? (
             <Ionicons name="checkmark-done" size={18} color="#FFF" />
           ) : (
-            <Text className={`text-[13px] font-inter-bold ${isActive ? 'text-white' : 'text-text-tertiary'}`}>{index + 1}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: isActive ? '#FFF' : '#9CA3AF' }}>{index + 1}</Text>
           )}
         </View>
         {index < STEPS.length - 1 && (
-          <View className={`w-[2px] h-7 my-1 ${isDone ? 'bg-success' : 'bg-gray-100'}`} />
+          <View style={[{ width: 2, height: 28, marginVertical: 4 }, getLineStyle()]} />
         )}
       </View>
-      <View className="flex-1 pb-1">
-        <Text className={`text-[14px] font-inter-bold ${isActive ? 'text-text' : isDone ? 'text-text-secondary opacity-60' : 'text-text-tertiary'}`}>
+      <View style={{ flex: 1, paddingBottom: 4 }}>
+        <Text style={[{ fontSize: 14 }, getTextStyle()]}>
           {step}
         </Text>
         {isActive && (
-          <View className="bg-primary/10 self-start px-2 py-0.5 rounded-md mt-1">
-            <Text className="text-[8px] font-inter-bold text-primary uppercase tracking-[1px]">Active Progress</Text>
+          <View style={{ backgroundColor: 'rgba(27, 110, 243, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 4 }}>
+            <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.primary, textTransform: 'uppercase', letterSpacing: 1 }}>Active Progress</Text>
           </View>
         )}
       </View>
@@ -101,16 +100,23 @@ function AnimatedStepIndicator({ step, index, currentStep }: { step: string; ind
 function PulsingCallButton({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity
-      className="w-12 h-12 rounded-2xl bg-success items-center justify-center shadow-xl shadow-success/15"
+      style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' }}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <LinearGradient
-        colors={['#10B981', '#059669']}
-        className="w-full h-full rounded-2xl items-center justify-center"
-      >
-        <Ionicons name="call" size={20} color="#FFF" />
-      </LinearGradient>
+      <Ionicons name="call" size={20} color="#FFF" />
+    </TouchableOpacity>
+  );
+}
+
+function PulsingNavigateButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Ionicons name="navigate" size={20} color="#FFF" />
     </TouchableOpacity>
   );
 }
@@ -128,6 +134,7 @@ export default function DriverActiveRideScreen() {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [driverLoc, setDriverLoc] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [eta, setEta] = useState<{ distance: number, duration: number } | null>(null);
   const hasNavigatedAfterCompletion = useRef(false);
 
   const topInset = insets.top + (Platform.OS === 'web' ? 67 : 0);
@@ -139,18 +146,35 @@ export default function DriverActiveRideScreen() {
     fetchBookings();
     const interval = setInterval(() => { fetchBookings(); }, 5000);
 
+    let socket: any;
+    try {
+      const apiUrl = getApiUrl();
+      socket = io(apiUrl, { transports: ['websocket', 'polling'], path: '/socket.io' });
+    } catch (e) {
+      console.error('[ACTIVE-RIDE] Socket connection error:', e);
+    }
+
     let locationSubscription: any;
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
 
       locationSubscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
+        { accuracy: Location.Accuracy.High, distanceInterval: 5 }, // Increased accuracy & frequency
         (loc) => {
-          setDriverLoc({
+          const newLocation = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude
-          });
+          };
+          setDriverLoc(newLocation);
+
+          if (socket && booking?.driverId) {
+            socket.emit('driver:location', {
+              driverId: booking.driverId,
+              lat: newLocation.latitude,
+              lng: newLocation.longitude
+            });
+          }
         }
       );
     })();
@@ -158,8 +182,9 @@ export default function DriverActiveRideScreen() {
     return () => {
       clearInterval(interval);
       if (locationSubscription) locationSubscription.remove();
+      if (socket) socket.disconnect();
     };
-  }, []);
+  }, [booking?.driverId]);
 
   const getCurrentStep = () => {
     if (!booking) return 0;
@@ -174,6 +199,8 @@ export default function DriverActiveRideScreen() {
   const currentStep = getCurrentStep();
 
   const handleVerifyOtp = async () => {
+    Keyboard.dismiss(); // Prevent unmounting a focused input from crashing the app
+
     if (otp.length !== 4) {
       Alert.alert('Incomplete OTP', 'Please enter the 4-digit verification code.');
       return;
@@ -181,11 +208,17 @@ export default function DriverActiveRideScreen() {
     setVerifying(true);
     try {
       const result = await startTrip(bookingId!, otp);
-      if (result.success) setOtp('');
-      else Alert.alert('Verification Failed', result.error || 'The OTP entered is incorrect.');
+      if (!result.success) {
+        Alert.alert('Verification Failed', result.error || 'The OTP entered is incorrect.');
+        setOtp('');
+      } else {
+        console.log('[ACTIVE-RIDE] OTP Verified successfully. Status is now in_progress.');
+      }
     } catch (e: any) {
+      console.error('[ACTIVE-RIDE] Verification Error:', e);
       Alert.alert('Error', 'Communication error. Please try again.');
     } finally {
+      // Only set verifying false if we didn't unmount (but react handles the warning, so it's okay)
       setVerifying(false);
     }
   };
@@ -215,6 +248,22 @@ export default function DriverActiveRideScreen() {
 
   const handleCallCustomer = () => {
     if (booking?.customerPhone) Linking.openURL(`tel:${booking.customerPhone}`);
+  };
+
+  const handleOpenNavigation = () => {
+    if (!booking) return;
+    const dest = booking.status === 'accepted' ? booking.pickup : booking.delivery;
+    const lat = dest.lat;
+    const lng = dest.lng;
+    const label = dest.name;
+
+    const url = Platform.select({
+      ios: `maps:0,0?q=${label}@${lat},${lng}`,
+      android: `geo:0,0?q=${lat},${lng}(${label})`,
+      web: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+    }) || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+    Linking.openURL(url);
   };
 
   const handleCancelRide = async (reason: string) => {
@@ -249,37 +298,50 @@ export default function DriverActiveRideScreen() {
     <View className="flex-1 bg-[#FDFDFD]">
       <LinearGradient
         colors={[Colors.navyDark, Colors.navyMid]}
-        className="pb-10 rounded-b-[32px] shadow-2xl"
-        style={{ paddingTop: topInset + 12 }}
+        style={{ paddingBottom: 40, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingTop: topInset + 12 }}
       >
-        <View className="flex-row items-center px-6">
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24 }}>
           <TouchableOpacity
             onPress={() => router.replace('/driver/dashboard' as any)}
-            className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center border border-white/5"
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.surface} />
           </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-inter-bold text-surface mr-10">Job Terminal</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: Colors.surface, marginRight: 40 }}>Job Terminal</Text>
         </View>
 
-        <View className="mt-4 px-6 h-60">
-          <View className="flex-1 rounded-[24px] overflow-hidden bg-white/10 border border-white/5">
+        <View style={{ marginTop: 24, paddingHorizontal: 24, height: 240 }}>
+          <View style={{ flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
             <RouteMap
               pickup={booking.pickup}
               delivery={booking.delivery}
               driverLocation={driverLoc}
               showDriverToPickup={booking.status === 'accepted'}
+              onRoutingUpdate={(data) => setEta(data)}
             />
+
+            {eta && (
+              <View style={{ position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.9)', padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="clock-outline" size={16} color={Colors.primary} style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1D26' }}>
+                  {Math.round(eta.duration)} min
+                </Text>
+                <View style={{ width: 1, height: 12, backgroundColor: '#E5E7EB', marginHorizontal: 8 }} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#6B7280' }}>
+                  {eta.distance.toFixed(1)} km
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View className="mt-6 px-8 flex-row items-center justify-between">
+        <View style={{ marginTop: 24, paddingHorizontal: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
-            <Text className="text-[9px] font-inter-bold text-white/40 uppercase tracking-[2px] mb-1.5">Current Job ID</Text>
-            <Text className="text-xl font-inter-bold text-surface">#{bookingId?.slice(-6).toUpperCase() || 'TRAP-01'}</Text>
+            <Text style={{ fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6 }}>Current Job ID</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.surface }}>#{bookingId?.slice(-6).toUpperCase() || 'TRAP-01'}</Text>
           </View>
-          <View className="px-3 py-1.5 bg-accent/20 rounded-xl border border-accent/20">
-            <Text className="text-[10px] font-inter-bold text-accent uppercase tracking-wide">{booking.status.replace('_', ' ')}</Text>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(27, 212, 184, 0.2)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(27, 212, 184, 0.2)' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.accent, textTransform: 'uppercase', letterSpacing: 0.5 }}>{booking.status.replace('_', ' ')}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -299,7 +361,16 @@ export default function DriverActiveRideScreen() {
         </AnimatedCard>
 
         <AnimatedCard index={1} className="bg-white rounded-[24px] p-5 mb-5 shadow-xl shadow-black/5 border border-gray-100">
-          <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px] mb-4">Route Navigation</Text>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-[9px] font-inter-bold text-text-tertiary uppercase tracking-[1.5px]">Route Navigation</Text>
+            <TouchableOpacity
+              onPress={handleOpenNavigation}
+              className="bg-primary/10 px-3 py-1.5 rounded-lg flex-row items-center"
+            >
+              <Ionicons name="navigate" size={14} color={Colors.primary} />
+              <Text className="ml-1.5 text-[10px] font-inter-bold text-primary uppercase">Open GPS</Text>
+            </TouchableOpacity>
+          </View>
           <View className="flex-row items-start">
             <View className="items-center mr-4 pt-1">
               <View className="w-3.5 h-3.5 rounded-full bg-success/20 items-center justify-center">
@@ -335,7 +406,10 @@ export default function DriverActiveRideScreen() {
                 <Text className="text-[13px] font-inter-bold text-primary tracking-wider uppercase mt-0.5">{booking.customerPhone}</Text>
               </View>
             </View>
-            <PulsingCallButton onPress={handleCallCustomer} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <PulsingNavigateButton onPress={handleOpenNavigation} />
+              <PulsingCallButton onPress={handleCallCustomer} />
+            </View>
           </View>
         </AnimatedCard>
 

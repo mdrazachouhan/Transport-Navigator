@@ -214,9 +214,10 @@ class MongoStorage {
   }
 
   async getOnlineDrivers(vehicleType?: string): Promise<User[]> {
-    const query: any = { role: 'driver', isOnline: true, isApproved: { $ne: false } };
+    const query: any = { role: 'driver', isOnline: true };
     if (vehicleType) query.vehicleType = vehicleType;
     const docs = await UserModel.find(query);
+    console.log(`[STORAGE] Found ${docs.length} online drivers`);
     return docs.map(docToUser);
   }
 

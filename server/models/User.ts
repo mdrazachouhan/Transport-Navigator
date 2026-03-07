@@ -31,8 +31,8 @@ const UserSchema = new Schema<IUser>({
     totalTrips: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     location: {
-        type: { lat: Number, lng: Number },
-        default: undefined,
+        lat: Number,
+        lng: Number,
     },
 }, { timestamps: true });
 

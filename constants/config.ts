@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const LOCAL_IP = '10.128.191.96'; // Change this to your machine's IP if testing on device
+const LOCAL_IP = '192.168.29.102'; // Change this to your machine's IP if testing on device
 const PORT = 5000;
 
 export const API_BASE_URL = Platform.select({

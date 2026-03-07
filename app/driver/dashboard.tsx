@@ -20,6 +20,8 @@ import { useBookings } from '@/contexts/BookingContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import Colors from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
+import { io } from 'socket.io-client';
+import * as Location from 'expo-location';
 
 function AnimatedStatCard({
   index,
@@ -270,6 +272,78 @@ export default function DriverDashboardScreen() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Location tracking for Admin Panel
+  useEffect(() => {
+    if (!user?.isOnline || !token) return;
+
+    let socket: any;
+    let locationSubscription: any;
+
+    const startTracking = async () => {
+      try {
+        console.log('[TRACKING] Requesting location permissions...');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.error('[TRACKING] Permission denied');
+          return;
+        }
+
+        const baseUrl = getApiUrl();
+        console.log('[TRACKING] Connecting to socket at:', baseUrl);
+        socket = io(baseUrl, {
+          path: '/socket.io',
+          transports: ['websocket', 'polling']
+        });
+
+        socket.on('connect', () => {
+          console.log('[TRACKING] Socket connected, emitting driver:online');
+          socket.emit('driver:online', { driverId: user.id });
+        });
+
+        // Get initial position
+        const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (currentLoc && socket) {
+          console.log('[TRACKING] Sending initial location:', currentLoc.coords.latitude, currentLoc.coords.longitude);
+          socket.emit('driver:location', {
+            driverId: user.id,
+            lat: currentLoc.coords.latitude,
+            lng: currentLoc.coords.longitude
+          });
+        }
+
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 10000,
+            distanceInterval: 10,
+          },
+          (newLocation) => {
+            if (socket) {
+              console.log('[TRACKING] Emitting location update:', newLocation.coords.latitude, newLocation.coords.longitude);
+              socket.emit('driver:location', {
+                driverId: user.id,
+                lat: newLocation.coords.latitude,
+                lng: newLocation.coords.longitude
+              });
+            }
+          }
+        );
+      } catch (e) {
+        console.error('Tracking Error:', e);
+      }
+    };
+
+    startTracking();
+
+    return () => {
+      if (locationSubscription) locationSubscription.remove();
+      if (socket) {
+        socket.emit('driver:offline', { driverId: user.id });
+        socket.disconnect();
+      }
+    };
+  }, [user?.isOnline, token]);
 
   const handleToggleOnline = async () => {
     if (isTogglingOnline) return;

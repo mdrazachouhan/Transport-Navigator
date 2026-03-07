@@ -1,4 +1,7 @@
 {
+    "cli": {
+        "appVersionSource": "remote"
+    },
     "build": {
         "development": {
             "developmentClient": true,
@@ -9,7 +12,9 @@
                 "buildType": "apk"
             },
             "env": {
-                "EXPO_PUBLIC_APP_MODE": "customer"
+                "EXPO_PUBLIC_APP_MODE": "customer",
+                "EXPO_PUBLIC_DOMAIN": "http://10.31.178.96:5000",
+                "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAlxkoyPdQD4ehaXJ0dMXNXNLHcTzJHmYk"
             }
         },
         "driver": {
@@ -17,7 +22,9 @@
                 "buildType": "apk"
             },
             "env": {
-                "EXPO_PUBLIC_APP_MODE": "driver"
+                "EXPO_PUBLIC_APP_MODE": "driver",
+                "EXPO_PUBLIC_DOMAIN": "http://10.31.178.96:5000",
+                "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAlxkoyPdQD4ehaXJ0dMXNXNLHcTzJHmYk"
             }
         }
     },
